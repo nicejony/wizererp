@@ -49,7 +49,7 @@ export default function NuevoProductoPage() {
       <h1 className="mb-6 text-2xl font-semibold">Nuevo producto</h1>
 
       <form onSubmit={handleSubmit} className="card space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label>
             <span className="mb-1 block text-sm font-medium">Código *</span>
             <input required className="input" value={form.codigo} onChange={(e) => update("codigo", e.target.value)} />

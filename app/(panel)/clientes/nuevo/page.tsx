@@ -45,7 +45,7 @@ export default function NuevoClientePage() {
       <h1 className="mb-6 text-2xl font-semibold">Nuevo cliente</h1>
 
       <form onSubmit={handleSubmit} className="card space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label>
             <span className="mb-1 block text-sm font-medium">Nombre *</span>
             <input required className="input" value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
