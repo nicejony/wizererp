@@ -1,23 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 
-export default async function PresupuestosPage() {
+export default async function RemitosPage() {
   const supabase = createClient();
   const { data: documentos } = await supabase
     .from("documentos")
     .select("*, clientes(nombre)")
-    .eq("tipo", "presupuesto")
+    .eq("tipo", "remito")
     .order("created_at", { ascending: false });
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Presupuestos</h1>
-        <Link href="/presupuestos/nuevo" className="btn-primary">
-          + Nuevo presupuesto
-        </Link>
-      </div>
+      <h1 className="mb-6 text-2xl font-semibold">Remitos</h1>
+      <p className="mb-4 text-sm text-neutral-500">
+        Los remitos se generan convirtiendo un presupuesto confirmado. Al confirmarse descuentan stock automáticamente.
+      </p>
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
@@ -38,20 +35,20 @@ export default async function PresupuestosPage() {
                 <td className="px-4 py-3">{d.fecha}</td>
                 <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700">
+                  <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
                     {d.estado}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right font-medium">${d.total}</td>
                 <td className="px-4 py-3 text-right">
-                  <DocumentoAcciones documentoId={d.id} tipo="presupuesto" estado={d.estado} />
+                  <DocumentoAcciones documentoId={d.id} tipo="remito" estado={d.estado} />
                 </td>
               </tr>
             ))}
             {(!documentos || documentos.length === 0) && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-neutral-400">
-                  No hay presupuestos todavía.
+                  No hay remitos todavía. Se generan desde un Presupuesto.
                 </td>
               </tr>
             )}

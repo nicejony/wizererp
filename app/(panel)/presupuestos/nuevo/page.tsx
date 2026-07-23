@@ -3,7 +3,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Producto, Cliente, PresupuestoItem } from "@/lib/types";
+import { Producto, Cliente, DocumentoItem, TipoPrecio } from "@/lib/types";
+
+function precioSegunTipo(p: Producto, tipo: TipoPrecio): number {
+  if (tipo === "mayorista") return p.precio_mayorista;
+  if (tipo === "promocion") return p.precio_promocion ?? p.precio_minorista;
+  return p.precio_minorista; // minorista o manual (arranca desde minorista)
+}
 
 export default function NuevoPresupuestoPage() {
   const router = useRouter();
@@ -15,27 +21,21 @@ export default function NuevoPresupuestoPage() {
 
   const [productoQuery, setProductoQuery] = useState("");
   const [productoResultados, setProductoResultados] = useState<Producto[]>([]);
-  const [items, setItems] = useState<PresupuestoItem[]>([]);
+  const [items, setItems] = useState<(DocumentoItem & { tipoPrecio: TipoPrecio })[]>([]);
 
   const [observaciones, setObservaciones] = useState("");
   const [formaPago, setFormaPago] = useState("");
   const [guardando, setGuardando] = useState(false);
 
-  // Buscar clientes
   useEffect(() => {
     if (clienteQuery.length < 2) return setClienteResultados([]);
     const t = setTimeout(async () => {
-      const { data } = await supabase
-        .from("clientes")
-        .select("*")
-        .ilike("nombre", `%${clienteQuery}%`)
-        .limit(5);
+      const { data } = await supabase.from("clientes").select("*").ilike("nombre", `%${clienteQuery}%`).limit(5);
       setClienteResultados(data ?? []);
     }, 250);
     return () => clearTimeout(t);
   }, [clienteQuery]);
 
-  // Buscar productos
   useEffect(() => {
     if (productoQuery.length < 2) return setProductoResultados([]);
     const t = setTimeout(async () => {
@@ -60,15 +60,18 @@ export default function NuevoPresupuestoPage() {
             : i
         );
       }
+      const precio = precioSegunTipo(p, "minorista");
       return [
         ...prev,
         {
           producto_id: p.id,
           producto: p,
           cantidad: 1,
-          precio_unitario: p.precio_minorista,
+          precio_unitario: precio,
+          costo_unitario: p.costo,
           descuento_porcentaje: 0,
-          subtotal: p.precio_minorista,
+          subtotal: precio,
+          tipoPrecio: "minorista",
         },
       ];
     });
@@ -76,14 +79,21 @@ export default function NuevoPresupuestoPage() {
     setProductoResultados([]);
   }
 
+  function recalcularSubtotal(item: typeof items[number]): typeof items[number] {
+    const bruto = item.cantidad * item.precio_unitario;
+    return { ...item, subtotal: bruto - (bruto * item.descuento_porcentaje) / 100 };
+  }
+
   function actualizarItem(idx: number, campo: "cantidad" | "precio_unitario" | "descuento_porcentaje", valor: number) {
+    setItems((prev) => prev.map((item, i) => (i === idx ? recalcularSubtotal({ ...item, [campo]: valor }) : item)));
+  }
+
+  function cambiarTipoPrecio(idx: number, tipo: TipoPrecio) {
     setItems((prev) =>
       prev.map((item, i) => {
-        if (i !== idx) return item;
-        const actualizado = { ...item, [campo]: valor };
-        const bruto = actualizado.cantidad * actualizado.precio_unitario;
-        actualizado.subtotal = bruto - (bruto * actualizado.descuento_porcentaje) / 100;
-        return actualizado;
+        if (i !== idx || !item.producto) return item;
+        const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.producto, tipo);
+        return recalcularSubtotal({ ...item, tipoPrecio: tipo, precio_unitario: nuevoPrecio });
       })
     );
   }
@@ -98,9 +108,10 @@ export default function NuevoPresupuestoPage() {
     if (!cliente || items.length === 0) return;
     setGuardando(true);
 
-    const { data: presupuesto, error } = await supabase
-      .from("presupuestos")
+    const { data: documento, error } = await supabase
+      .from("documentos")
       .insert({
+        tipo: "presupuesto",
         cliente_id: cliente.id,
         forma_pago: formaPago || null,
         observaciones: observaciones || null,
@@ -111,21 +122,23 @@ export default function NuevoPresupuestoPage() {
       .select()
       .single();
 
-    if (error || !presupuesto) {
+    if (error || !documento) {
       setGuardando(false);
+      alert("Error al guardar: " + error?.message);
       return;
     }
 
     const itemsPayload = items.map((i) => ({
-      presupuesto_id: presupuesto.id,
+      documento_id: documento.id,
       producto_id: i.producto_id,
       cantidad: i.cantidad,
       precio_unitario: i.precio_unitario,
+      costo_unitario: i.costo_unitario,
       descuento_porcentaje: i.descuento_porcentaje,
       subtotal: i.subtotal,
     }));
 
-    await supabase.from("presupuesto_items").insert(itemsPayload);
+    await supabase.from("documento_items").insert(itemsPayload);
 
     setGuardando(false);
     router.push("/presupuestos");
@@ -193,7 +206,9 @@ export default function NuevoPresupuestoPage() {
                   className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-neutral-50"
                   onClick={() => agregarProducto(p)}
                 >
-                  <span>{p.nombre} <span className="text-neutral-400">({p.codigo})</span></span>
+                  <span>
+                    {p.nombre} <span className="text-neutral-400">({p.codigo})</span>
+                  </span>
                   <span className="font-medium">${p.precio_minorista}</span>
                 </button>
               ))}
@@ -203,14 +218,15 @@ export default function NuevoPresupuestoPage() {
       </div>
 
       {/* Items */}
-      <div className="card mb-4 p-0">
+      <div className="card mb-4 overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead className="border-b border-neutral-100 bg-neutral-50 text-left text-neutral-500">
             <tr>
               <th className="px-3 py-2">Producto</th>
-              <th className="w-20 px-3 py-2">Cant.</th>
+              <th className="w-16 px-3 py-2">Cant.</th>
+              <th className="w-32 px-3 py-2">Lista de precio</th>
               <th className="w-28 px-3 py-2">Precio</th>
-              <th className="w-20 px-3 py-2">Desc. %</th>
+              <th className="w-16 px-3 py-2">Desc. %</th>
               <th className="w-28 px-3 py-2 text-right">Subtotal</th>
               <th className="w-10 px-3 py-2"></th>
             </tr>
@@ -229,10 +245,23 @@ export default function NuevoPresupuestoPage() {
                   />
                 </td>
                 <td className="px-3 py-2">
+                  <select
+                    className="input py-1"
+                    value={item.tipoPrecio}
+                    onChange={(e) => cambiarTipoPrecio(idx, e.target.value as TipoPrecio)}
+                  >
+                    <option value="mayorista">Mayorista</option>
+                    <option value="minorista">Minorista</option>
+                    <option value="promocion">Promoción</option>
+                    <option value="manual">Manual</option>
+                  </select>
+                </td>
+                <td className="px-3 py-2">
                   <input
                     type="number"
                     step="0.01"
-                    className="input py-1"
+                    disabled={item.tipoPrecio !== "manual"}
+                    className="input py-1 disabled:bg-neutral-50 disabled:text-neutral-500"
                     value={item.precio_unitario}
                     onChange={(e) => actualizarItem(idx, "precio_unitario", Number(e.target.value))}
                   />
@@ -255,7 +284,7 @@ export default function NuevoPresupuestoPage() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-neutral-400">
+                <td colSpan={7} className="px-3 py-8 text-center text-neutral-400">
                   Buscá y agregá productos arriba.
                 </td>
               </tr>
@@ -276,7 +305,7 @@ export default function NuevoPresupuestoPage() {
             <textarea className="input" rows={2} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
           </label>
         </div>
-        <div className="flex flex-col items-end justify-end">
+        <div className="flex flex-col items-start justify-end sm:items-end">
           <span className="text-sm text-neutral-500">Total</span>
           <span className="text-3xl font-semibold text-violet-700">${total.toFixed(2)}</span>
         </div>
@@ -287,7 +316,7 @@ export default function NuevoPresupuestoPage() {
         disabled={!cliente || items.length === 0 || guardando}
         className="btn-primary"
       >
-        {guardando ? "Guardando..." : "Guardar y generar PDF"}
+        {guardando ? "Guardando..." : "Guardar presupuesto"}
       </button>
     </div>
   );

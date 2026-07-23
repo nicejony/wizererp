@@ -7,10 +7,11 @@ export default async function DashboardPage() {
   const inicioMes = new Date();
   inicioMes.setDate(1);
 
-  const [{ data: ventasHoy }, { data: ventasMes }, { data: stockBajo }] = await Promise.all([
-    supabase.from("ventas").select("total").eq("fecha", hoy),
-    supabase.from("ventas").select("total").gte("fecha", inicioMes.toISOString().slice(0, 10)),
+  const [{ data: ventasHoy }, { data: ventasMes }, { data: stockBajo }, { data: pendientes }] = await Promise.all([
+    supabase.from("documentos").select("total").eq("tipo", "venta").eq("fecha", hoy),
+    supabase.from("documentos").select("total").eq("tipo", "venta").gte("fecha", inicioMes.toISOString().slice(0, 10)),
     supabase.from("productos").select("id, nombre, stock, stock_minimo").lt("stock", 5).eq("activo", true),
+    supabase.from("documentos").select("id").eq("tipo", "presupuesto").eq("estado", "confirmado"),
   ]);
 
   const totalHoy = ventasHoy?.reduce((s, v) => s + Number(v.total), 0) ?? 0;
@@ -41,8 +42,8 @@ export default async function DashboardPage() {
           <p className="mt-1 text-2xl font-semibold">{stockBajo?.length ?? 0}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-neutral-500">Pedidos pendientes</p>
-          <p className="mt-1 text-2xl font-semibold">—</p>
+          <p className="text-sm text-neutral-500">Presupuestos pendientes</p>
+          <p className="mt-1 text-2xl font-semibold">{pendientes?.length ?? 0}</p>
         </div>
       </div>
 

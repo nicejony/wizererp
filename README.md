@@ -11,12 +11,23 @@ Sistema de gestión comercial para Wizer Bikes. Next.js + Supabase.
 
 El resto de los módulos del PRD (Remitos, Compras, Stock, Reportes, etc.) siguen el mismo patrón: una carpeta en `app/(panel)/` con `page.tsx` (listado) y `nuevo/page.tsx` (alta), consultando las tablas ya creadas en `supabase/schema.sql`.
 
+## Migración: Documento Comercial unificado
+Si ya tenías el schema original corrido en Supabase, ejecutá **una sola vez** `supabase/migration_001_documento_comercial.sql` en el SQL Editor. Esto reemplaza las tablas `presupuestos`, `presupuesto_items`, `remitos` y `ventas` por dos tablas nuevas: `documentos` (con campo `tipo`: presupuesto/remito/venta) y `documento_items`.
+
+⚠️ Esta migración borra los datos de prueba que tengas en esas tablas viejas. Si tenías presupuestos reales cargados que no querés perder, avisá antes de correrla para migrar los datos en vez de borrarlos.
+
+Con esto, el flujo queda:
+1. Creás un **Presupuesto** (`/presupuestos/nuevo`)
+2. Desde el listado de Presupuestos, botón **"Convertir a Remito"** → descuenta stock automáticamente y bloquea el presupuesto original
+3. Desde el listado de Remitos, botón **"Convertir a Venta"** → queda registrada para estadísticas y margen, y bloquea el remito original
+
 ## 1. Crear el proyecto en Supabase
 1. Entrá a https://supabase.com → **New project**.
 2. Cuando esté listo, andá a **SQL Editor** → **New query**.
 3. Copiá todo el contenido de `supabase/schema.sql` y ejecutalo (▶ Run).
    Esto crea todas las tablas, relaciones, triggers de stock y políticas de seguridad.
-4. Andá a **Project Settings → API** y copiá:
+4. Si es un proyecto nuevo, corré también `supabase/migration_001_documento_comercial.sql` a continuación (ver sección de Migración más abajo) — reemplaza presupuestos/remitos/ventas por el modelo unificado de Documentos.
+5. Andá a **Project Settings → API** y copiá:
    - `Project URL`
    - `anon public key`
 
