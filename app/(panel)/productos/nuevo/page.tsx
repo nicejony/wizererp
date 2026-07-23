@@ -4,84 +4,163 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+interface VarianteForm {
+  color: string;
+  stock: string;
+  stock_minimo: string;
+}
+
 export default function NuevoProductoPage() {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({
     codigo: "",
     nombre: "",
-    color: "",
     rodado: "",
     costo: "",
     precio_mayorista: "",
     precio_minorista: "",
-    stock: "0",
-    stock_minimo: "0",
   });
+
+  const [variantes, setVariantes] = useState<VarianteForm[]>([{ color: "", stock: "0", stock_minimo: "0" }]);
 
   function update(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function updateVariante(idx: number, field: keyof VarianteForm, value: string) {
+    setVariantes((prev) => prev.map((v, i) => (i === idx ? { ...v, [field]: value } : v)));
+  }
+
+  function agregarColor() {
+    setVariantes((prev) => [...prev, { color: "", stock: "0", stock_minimo: "0" }]);
+  }
+
+  function quitarColor(idx: number) {
+    setVariantes((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.from("productos").insert({
-      codigo: form.codigo,
-      nombre: form.nombre,
-      color: form.color || null,
-      rodado: form.rodado || null,
-      costo: Number(form.costo) || 0,
-      precio_mayorista: Number(form.precio_mayorista) || 0,
-      precio_minorista: Number(form.precio_minorista) || 0,
-      stock: Number(form.stock) || 0,
-      stock_minimo: Number(form.stock_minimo) || 0,
-    });
+    const { data: producto, error } = await supabase
+      .from("productos")
+      .insert({
+        codigo: form.codigo,
+        nombre: form.nombre,
+        rodado: form.rodado || null,
+        costo: Number(form.costo) || 0,
+        precio_mayorista: Number(form.precio_mayorista) || 0,
+        precio_minorista: Number(form.precio_minorista) || 0,
+      })
+      .select()
+      .single();
+
+    if (error || !producto) {
+      setLoading(false);
+      alert("Error al guardar producto: " + error?.message);
+      return;
+    }
+
+    const variantesPayload = variantes.map((v) => ({
+      producto_id: producto.id,
+      color: v.color || null,
+      stock_minimo: Number(v.stock_minimo) || 0,
+    }));
+
+    const { data: variantesCreadas, error: errorVariantes } = await supabase
+      .from("producto_variantes")
+      .insert(variantesPayload)
+      .select();
+
+    if (errorVariantes || !variantesCreadas) {
+      setLoading(false);
+      alert("El producto se creó pero hubo un error con los colores: " + errorVariantes?.message);
+      return;
+    }
+
+    const { data: depositoPrincipal } = await supabase.from("depositos").select("id").eq("tipo", "principal").single();
+
+    if (depositoPrincipal) {
+      const stockPayload = variantesCreadas.map((vc, idx) => ({
+        variante_id: vc.id,
+        deposito_id: depositoPrincipal.id,
+        stock: Number(variantes[idx].stock) || 0,
+      }));
+      await supabase.from("variante_stock").insert(stockPayload);
+    }
 
     setLoading(false);
-    if (!error) router.push("/productos");
+    router.push("/productos");
   }
 
   return (
     <div className="max-w-2xl">
       <h1 className="mb-6 text-2xl font-semibold">Nuevo producto</h1>
 
-      <form onSubmit={handleSubmit} className="card space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label>
-            <span className="mb-1 block text-sm font-medium">Código *</span>
-            <input required className="input" value={form.codigo} onChange={(e) => update("codigo", e.target.value)} />
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Nombre *</span>
-            <input required className="input" value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Color</span>
-            <input className="input" value={form.color} onChange={(e) => update("color", e.target.value)} />
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Rodado</span>
-            <input className="input" value={form.rodado} onChange={(e) => update("rodado", e.target.value)} />
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Costo</span>
-            <input type="number" step="0.01" className="input" value={form.costo} onChange={(e) => update("costo", e.target.value)} />
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Precio Mayorista</span>
-            <input type="number" step="0.01" className="input" value={form.precio_mayorista} onChange={(e) => update("precio_mayorista", e.target.value)} />
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Precio Minorista</span>
-            <input type="number" step="0.01" className="input" value={form.precio_minorista} onChange={(e) => update("precio_minorista", e.target.value)} />
-          </label>
-          <label>
-            <span className="mb-1 block text-sm font-medium">Stock inicial</span>
-            <input type="number" className="input" value={form.stock} onChange={(e) => update("stock", e.target.value)} />
-          </label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="card space-y-4">
+          <p className="text-sm font-medium text-neutral-500">Datos generales (compartidos por todos los colores)</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-1 block text-sm font-medium">Código *</span>
+              <input required className="input" value={form.codigo} onChange={(e) => update("codigo", e.target.value)} />
+            </label>
+            <label>
+              <span className="mb-1 block text-sm font-medium">Nombre *</span>
+              <input required className="input" value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
+            </label>
+            <label>
+              <span className="mb-1 block text-sm font-medium">Rodado</span>
+              <input className="input" value={form.rodado} onChange={(e) => update("rodado", e.target.value)} />
+            </label>
+            <label>
+              <span className="mb-1 block text-sm font-medium">Costo</span>
+              <input type="number" step="0.01" className="input no-spinner" value={form.costo} onChange={(e) => update("costo", e.target.value)} />
+            </label>
+            <label>
+              <span className="mb-1 block text-sm font-medium">Precio Mayorista</span>
+              <input type="number" step="0.01" className="input no-spinner" value={form.precio_mayorista} onChange={(e) => update("precio_mayorista", e.target.value)} />
+            </label>
+            <label>
+              <span className="mb-1 block text-sm font-medium">Precio Minorista</span>
+              <input type="number" step="0.01" className="input no-spinner" value={form.precio_minorista} onChange={(e) => update("precio_minorista", e.target.value)} />
+            </label>
+          </div>
+        </div>
+
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-neutral-500">Colores y stock inicial</p>
+            <button type="button" onClick={agregarColor} className="text-xs font-medium text-violet-600 hover:underline">
+              + agregar color
+            </button>
+          </div>
+
+          {variantes.map((v, idx) => (
+            <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2">
+              <label>
+                <span className="mb-1 block text-xs text-neutral-500">Color</span>
+                <input className="input" value={v.color} onChange={(e) => updateVariante(idx, "color", e.target.value)} />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs text-neutral-500">Stock</span>
+                <input type="number" className="input no-spinner w-24" value={v.stock} onChange={(e) => updateVariante(idx, "stock", e.target.value)} />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs text-neutral-500">Stock mín.</span>
+                <input type="number" className="input no-spinner w-24" value={v.stock_minimo} onChange={(e) => updateVariante(idx, "stock_minimo", e.target.value)} />
+              </label>
+              {variantes.length > 1 && (
+                <button type="button" onClick={() => quitarColor(idx)} className="mb-1 text-neutral-400 hover:text-red-600">
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
         </div>
 
         <button disabled={loading} className="btn-primary">

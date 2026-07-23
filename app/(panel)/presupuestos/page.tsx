@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
+import BotonImprimir from "@/components/BotonImprimir";
 
 export default async function PresupuestosPage() {
   const supabase = createClient();
@@ -14,9 +15,12 @@ export default async function PresupuestosPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Presupuestos</h1>
-        <Link href="/presupuestos/nuevo" className="btn-primary">
-          + Nuevo presupuesto
-        </Link>
+        <div className="flex gap-2">
+          <BotonImprimir />
+          <Link href="/presupuestos/nuevo" className="btn-primary no-print">
+            + Nuevo presupuesto
+          </Link>
+        </div>
       </div>
 
       <div className="card overflow-x-auto p-0">
@@ -28,13 +32,17 @@ export default async function PresupuestosPage() {
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3 text-right">Total</th>
-              <th className="px-4 py-3 text-right">Acción</th>
+              <th className="px-4 py-3 text-right no-print">Acción</th>
             </tr>
           </thead>
           <tbody>
             {documentos?.map((d: any) => (
               <tr key={d.id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
-                <td className="px-4 py-3 font-mono text-xs">#{d.numero}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  <Link href={`/documentos/${d.id}`} className="text-violet-700 hover:underline">
+                    #{d.numero}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">{d.fecha}</td>
                 <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
                 <td className="px-4 py-3">
@@ -43,7 +51,7 @@ export default async function PresupuestosPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right font-medium">${d.total}</td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right no-print">
                   <DocumentoAcciones documentoId={d.id} tipo="presupuesto" estado={d.estado} />
                 </td>
               </tr>

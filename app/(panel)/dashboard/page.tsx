@@ -7,12 +7,24 @@ export default async function DashboardPage() {
   const inicioMes = new Date();
   inicioMes.setDate(1);
 
-  const [{ data: ventasHoy }, { data: ventasMes }, { data: stockBajo }, { data: pendientes }] = await Promise.all([
+  const [{ data: ventasHoy }, { data: ventasMes }, { data: stockBajoRaw }, { data: pendientes }] = await Promise.all([
     supabase.from("documentos").select("total").eq("tipo", "venta").eq("fecha", hoy),
     supabase.from("documentos").select("total").eq("tipo", "venta").gte("fecha", inicioMes.toISOString().slice(0, 10)),
-    supabase.from("productos").select("id, nombre, stock, stock_minimo").lt("stock", 5).eq("activo", true),
+    supabase.from("variante_resumen").select("*").lt("stock_total", 5).eq("activo", true),
     supabase.from("documentos").select("id").eq("tipo", "presupuesto").eq("estado", "confirmado"),
   ]);
+
+  // La vista variante_resumen no trae el nombre del producto directo (es una vista, no una tabla
+  // con relación registrada), así que lo buscamos aparte y lo combinamos acá.
+  const idsProductos = [...new Set((stockBajoRaw ?? []).map((v: any) => v.producto_id))];
+  const { data: nombresProductos } =
+    idsProductos.length > 0
+      ? await supabase.from("productos").select("id, nombre").in("id", idsProductos)
+      : { data: [] };
+  const stockBajo = (stockBajoRaw ?? []).map((v: any) => ({
+    ...v,
+    nombre: nombresProductos?.find((p) => p.id === v.producto_id)?.nombre ?? "—",
+  }));
 
   const totalHoy = ventasHoy?.reduce((s, v) => s + Number(v.total), 0) ?? 0;
   const totalMes = ventasMes?.reduce((s, v) => s + Number(v.total), 0) ?? 0;
@@ -59,10 +71,12 @@ export default async function DashboardPage() {
         <div className="card">
           <h2 className="mb-3 font-medium">Alertas de stock</h2>
           <ul className="space-y-2 text-sm">
-            {stockBajo.map((p) => (
-              <li key={p.id} className="flex justify-between border-b border-neutral-50 pb-2">
-                <span>{p.nombre}</span>
-                <span className="font-medium text-red-600">{p.stock} u.</span>
+            {stockBajo.map((v: any) => (
+              <li key={v.variante_id} className="flex justify-between border-b border-neutral-50 pb-2">
+                <span>
+                  {v.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}
+                </span>
+                <span className="font-medium text-red-600">{v.stock_total} u.</span>
               </li>
             ))}
           </ul>

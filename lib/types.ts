@@ -1,9 +1,7 @@
 export interface Producto {
   id: string;
   codigo: string;
-  codigo_barras: string | null;
   nombre: string;
-  color: string | null;
   talle: string | null;
   rodado: string | null;
   modelo: string | null;
@@ -11,10 +9,37 @@ export interface Producto {
   precio_mayorista: number;
   precio_minorista: number;
   precio_promocion: number | null;
+  activo: boolean;
+}
+
+export interface Deposito {
+  id: string;
+  nombre: string;
+  tipo: "principal" | "secundario";
+  direccion: string | null;
+  activo: boolean;
+}
+
+export interface VarianteStock {
+  id: string;
+  variante_id: string;
+  deposito_id: string;
+  deposito?: Deposito;
   stock: number;
+}
+
+export interface ProductoVariante {
+  id: string;
+  producto_id: string;
+  producto?: Producto;
+  color: string | null;
+  codigo_variante: string | null;
+  codigo_barras: string | null;
+  foto_url: string | null;
   stock_minimo: number;
   stock_ideal: number;
   activo: boolean;
+  stock_total?: number; // viene de la vista variante_resumen (suma de todos los depósitos)
 }
 
 export interface Cliente {
@@ -37,8 +62,8 @@ export type DocumentoEstado = "borrador" | "confirmado" | "convertido" | "anulad
 
 export interface DocumentoItem {
   id?: string;
-  producto_id: string;
-  producto?: Producto;
+  variante_id: string;
+  variante?: ProductoVariante;
   cantidad: number;
   precio_unitario: number;
   costo_unitario: number;
@@ -62,5 +87,6 @@ export interface Documento {
   costo_total: number;
 }
 
-// Precio elegido para un ítem: mayorista, minorista, promo o manual
 export type TipoPrecio = "mayorista" | "minorista" | "promocion" | "manual";
+
+export const FORMAS_PAGO = ["Efectivo", "Transferencia", "Cheque", "Cuenta Corriente"] as const;

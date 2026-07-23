@@ -44,7 +44,7 @@ export async function convertirDocumento(documentoOrigenId: string, nuevoTipo: D
 
   const itemsPayload = (origen.documento_items as any[]).map((i) => ({
     documento_id: nuevo.id,
-    producto_id: i.producto_id,
+    variante_id: i.variante_id,
     cantidad: i.cantidad,
     precio_unitario: i.precio_unitario,
     costo_unitario: i.costo_unitario,

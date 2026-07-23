@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import BotonImprimir from "@/components/BotonImprimir";
 
 export default async function VentasPage() {
   const supabase = createClient();
@@ -13,7 +14,10 @@ export default async function VentasPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">Ventas</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Ventas</h1>
+        <BotonImprimir />
+      </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="card">
@@ -42,7 +46,11 @@ export default async function VentasPage() {
               const margen = Number(d.total) - Number(d.costo_total);
               return (
                 <tr key={d.id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
-                  <td className="px-4 py-3 font-mono text-xs">#{d.numero}</td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    <a href={`/documentos/${d.id}`} className="text-violet-700 hover:underline">
+                      #{d.numero}
+                    </a>
+                  </td>
                   <td className="px-4 py-3">{d.fecha}</td>
                   <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
                   <td className="px-4 py-3 text-right font-medium">${d.total}</td>

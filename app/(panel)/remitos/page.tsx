@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
+import BotonImprimir from "@/components/BotonImprimir";
 
 export default async function RemitosPage() {
   const supabase = createClient();
@@ -11,8 +12,11 @@ export default async function RemitosPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">Remitos</h1>
-      <p className="mb-4 text-sm text-neutral-500">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Remitos</h1>
+        <BotonImprimir />
+      </div>
+      <p className="mb-4 text-sm text-neutral-500 no-print">
         Los remitos se generan convirtiendo un presupuesto confirmado. Al confirmarse descuentan stock automáticamente.
       </p>
 
@@ -25,13 +29,17 @@ export default async function RemitosPage() {
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3 text-right">Total</th>
-              <th className="px-4 py-3 text-right">Acción</th>
+              <th className="px-4 py-3 text-right no-print">Acción</th>
             </tr>
           </thead>
           <tbody>
             {documentos?.map((d: any) => (
               <tr key={d.id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
-                <td className="px-4 py-3 font-mono text-xs">#{d.numero}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  <a href={`/documentos/${d.id}`} className="text-violet-700 hover:underline">
+                    #{d.numero}
+                  </a>
+                </td>
                 <td className="px-4 py-3">{d.fecha}</td>
                 <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
                 <td className="px-4 py-3">
@@ -40,7 +48,7 @@ export default async function RemitosPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right font-medium">${d.total}</td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right no-print">
                   <DocumentoAcciones documentoId={d.id} tipo="remito" estado={d.estado} />
                 </td>
               </tr>

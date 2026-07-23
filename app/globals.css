@@ -21,3 +21,34 @@ body {
 .card {
   @apply rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm;
 }
+
+/* Inputs numéricos sin flechas, para que se pueda escribir cómodo */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+}
+
+/* Impresión: solo se ve el contenido, sin menú ni botones */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white;
+  }
+  .card {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

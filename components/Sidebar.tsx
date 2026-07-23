@@ -63,7 +63,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Barra superior en mobile */}
-      <header className="flex items-center justify-between border-b border-neutral-100 bg-white px-4 py-3 lg:hidden">
+      <header className="no-print flex items-center justify-between border-b border-neutral-100 bg-white px-4 py-3 lg:hidden">
         <div>
           <span className="text-lg font-bold tracking-tight text-violet-600">WIZER</span>
           <span className="text-lg font-light text-neutral-400"> ERP</span>
@@ -79,7 +79,7 @@ export default function Sidebar() {
 
       {/* Overlay + drawer en mobile */}
       {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="no-print fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 flex h-screen w-64 flex-col bg-white px-3 py-5 shadow-xl">
             <div className="mb-6 flex items-center justify-between px-2">
@@ -97,7 +97,7 @@ export default function Sidebar() {
       )}
 
       {/* Sidebar fija en desktop */}
-      <aside className="hidden h-screen w-60 flex-col border-r border-neutral-100 bg-white px-3 py-5 lg:flex">
+      <aside className="no-print hidden h-screen w-60 flex-col border-r border-neutral-100 bg-white px-3 py-5 lg:flex">
         <div className="mb-6 px-2">
           <span className="text-lg font-bold tracking-tight text-violet-600">WIZER</span>
           <span className="text-lg font-light text-neutral-400"> ERP</span>
