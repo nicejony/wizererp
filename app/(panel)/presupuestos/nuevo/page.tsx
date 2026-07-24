@@ -226,7 +226,7 @@ export default function NuevoPresupuestoPage() {
             <tr>
               <th className="px-3 py-2">Producto</th>
               <th className="w-24 px-3 py-2">Cant.</th>
-              <th className="w-32 px-3 py-2">Lista de precio</th>
+              <th className="w-40 px-3 py-2">Lista de precio</th>
               <th className="w-28 px-3 py-2">Precio</th>
               <th className="w-20 px-3 py-2">Desc. %</th>
               <th className="w-28 px-3 py-2 text-right">Subtotal</th>
