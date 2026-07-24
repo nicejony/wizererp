@@ -220,8 +220,8 @@ export default function NuevoPresupuestoPage() {
       </div>
 
       {/* Items */}
-      <div className="card mb-4 overflow-x-auto p-0">
-        <table className="w-full text-sm">
+            <div className="card mb-4 overflow-x-auto p-0">
+        <table className="w-full min-w-[680px] text-sm">
           <thead className="border-b border-neutral-100 bg-neutral-50 text-left text-neutral-500">
             <tr>
               <th className="px-3 py-2">Producto</th>
