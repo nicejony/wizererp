@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/ventas", label: "Ventas", icon: ShoppingCart },
+    { href: "/ventas", label: "Ventas", icon: ShoppingCart },
+  { href: "/devoluciones", label: "Devoluciones", icon: RotateCcw },
   { href: "/presupuestos", label: "Presupuestos", icon: FileText },
   { href: "/remitos", label: "Remitos", icon: Truck },
   { href: "/clientes", label: "Clientes", icon: Users },
