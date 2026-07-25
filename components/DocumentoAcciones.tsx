@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { convertirDocumento } from "@/lib/convertirDocumento";
 import { DocumentoTipo } from "@/lib/types";
 
@@ -16,6 +17,14 @@ export default function DocumentoAcciones({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  if (tipo === "venta" && estado === "confirmado") {
+    return (
+      <Link href={`/documentos/${documentoId}/devolucion`} className="text-xs font-medium text-violet-600 hover:underline">
+        Generar devolución
+      </Link>
+    );
+  }
 
   const siguienteTipo: DocumentoTipo | null =
     tipo === "presupuesto" ? "remito" : tipo === "remito" ? "venta" : null;
