@@ -57,7 +57,7 @@ export interface Cliente {
   activo: boolean;
 }
 
-export type DocumentoTipo = "presupuesto" | "remito" | "venta";
+export type DocumentoTipo = "presupuesto" | "remito" | "venta" | "nota_credito";
 export type DocumentoEstado = "borrador" | "confirmado" | "convertido" | "anulado";
 
 export interface DocumentoItem {
