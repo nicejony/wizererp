@@ -30,9 +30,11 @@ export default async function StockPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Stock</h1>
-        <div className="flex gap-2">
+        <h1 className="text-2xl font-semibold">Stock</        <div className="flex gap-2">
           <BotonImprimir />
+          <Link href="/stock/inventario" className="btn-secondary no-print">
+            📋 Inventario
+          </Link>
           <Link href="/stock/transferencia" className="btn-primary no-print">
             ⇄ Transferencia entre depósitos
           </Link>
