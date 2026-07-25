@@ -14,11 +14,11 @@ import {
   ShoppingBag,
   Factory,
   BarChart3,
-  Settings,
+    Settings,
   Menu,
   X,
+  RotateCcw,
 } from "lucide-react";
-
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/ventas", label: "Ventas", icon: ShoppingCart },
