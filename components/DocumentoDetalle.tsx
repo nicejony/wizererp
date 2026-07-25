@@ -155,9 +155,10 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
       {/* Encabezado con acciones (no se imprime) */}
       <div className="no-print mb-6 flex items-center justify-between">
         <div>
-          <Link href={`/${documento.tipo}s`} className="text-xs text-neutral-400 hover:underline">
-            ← Volver a {ETIQUETAS[documento.tipo]}s
+          <Link href={RUTA_LISTADO[documento.tipo]} className="text-xs text-neutral-400 hover:underline">
+            ← Volver
           </Link>
+
           <h1 className="text-2xl font-semibold">
             {ETIQUETAS[documento.tipo]} #{documento.numero}
           </h1>
