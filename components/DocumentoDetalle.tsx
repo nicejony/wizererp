@@ -33,15 +33,6 @@ const RUTA_LISTADO: Record<string, string> = {
   nota_credito: "/devoluciones",
 };
 
-
-const RUTA_LISTADO: Record<string, string> = {
-  presupuesto: "/presupuestos",
-  remito: "/remitos",
-  venta: "/ventas",
-  nota_credito: "/devoluciones",
-};
-
-
 function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio): number {
   const p = v.producto!;
   if (tipo === "mayorista") return p.precio_mayorista;
