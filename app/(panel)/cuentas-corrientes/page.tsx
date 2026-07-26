@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import CuentasCorrientesPanel from "@/components/CuentasCorrientesPanel";
+import BotonImprimir from "@/components/BotonImprimir";
 
 export default async function CuentasCorrientesPage() {
   const supabase = createClient();
@@ -16,7 +17,7 @@ export default async function CuentasCorrientesPage() {
     saldos[m.entidad_id] = (saldos[m.entidad_id] ?? 0) + signo * Number(m.monto);
   }
 
-    const clientesConSaldo = (clientes ?? [])
+  const clientesConSaldo = (clientes ?? [])
     .map((c) => ({ id: c.id, nombre: c.nombre, saldo: saldos[c.id] ?? 0 }))
     .sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
 
@@ -26,7 +27,10 @@ export default async function CuentasCorrientesPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">Cuentas Corrientes</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Cuentas Corrientes</h1>
+        <BotonImprimir />
+      </div>
       <CuentasCorrientesPanel
         clientesConSaldo={clientesConSaldo}
         proveedoresConSaldo={proveedoresConSaldo}
@@ -35,3 +39,4 @@ export default async function CuentasCorrientesPage() {
     </div>
   );
 }
+
