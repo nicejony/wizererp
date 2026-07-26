@@ -1,0 +1,37 @@
+import { createClient } from "@/lib/supabase/server";
+import CuentasCorrientesPanel from "@/components/CuentasCorrientesPanel";
+
+export default async function CuentasCorrientesPage() {
+  const supabase = createClient();
+
+  const [{ data: movimientos }, { data: clientes }, { data: proveedores }] = await Promise.all([
+    supabase.from("movimientos_cuenta").select("*").order("fecha", { ascending: false }),
+    supabase.from("clientes").select("id, nombre"),
+    supabase.from("proveedores").select("id, nombre").eq("activo", true),
+  ]);
+
+  const saldos: Record<string, number> = {};
+  for (const m of movimientos ?? []) {
+    const signo = m.tipo === "cargo" ? 1 : -1;
+    saldos[m.entidad_id] = (saldos[m.entidad_id] ?? 0) + signo * Number(m.monto);
+  }
+
+  const clientesConSaldo = (clientes ?? [])
+    .map((c) => ({ id: c.id, nombre: c.nombre, saldo: saldos[c.id] ?? 0 }))
+    .filter((c) => c.saldo !== 0);
+
+  const proveedoresConSaldo = (proveedores ?? [])
+    .map((p) => ({ id: p.id, nombre: p.nombre, saldo: saldos[p.id] ?? 0 }))
+    .filter((p) => p.saldo !== 0);
+
+  return (
+    <div>
+      <h1 className="mb-6 text-2xl font-semibold">Cuentas Corrientes</h1>
+      <CuentasCorrientesPanel
+        clientesConSaldo={clientesConSaldo}
+        proveedoresConSaldo={proveedoresConSaldo}
+        movimientosIniciales={movimientos ?? []}
+      />
+    </div>
+  );
+}
