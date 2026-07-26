@@ -32,6 +32,7 @@ const items = [
   { href: "/stock", label: "Stock", icon: Boxes },
   { href: "/compras", label: "Compras", icon: ShoppingBag },
   { href: "/proveedores", label: "Proveedores", icon: Factory },
+  { href: "/cuentas-corrientes", label: "Cuentas Corrientes", icon: Wallet },
   { href: "/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ];
