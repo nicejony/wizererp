@@ -1,163 +1,126 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-interface Entidad {
-  id: string;
-  nombre: string;
-  saldo: number;
-}
+const ROLES = ["admin", "ventas", "deposito", "lectura"] as const;
 
-export default function CuentasCorrientesPanel({
-  clientesConSaldo,
-  proveedoresConSaldo,
-  movimientosIniciales,
+export default function ConfiguracionPanel({
+  usuariosIniciales,
+  categoriasIniciales,
+  marcasIniciales,
 }: {
-  clientesConSaldo: Entidad[];
-  proveedoresConSaldo: Entidad[];
-  movimientosIniciales: any[];
+  usuariosIniciales: any[];
+  categoriasIniciales: any[];
+  marcasIniciales: any[];
 }) {
-  const router = useRouter();
   const supabase = createClient();
 
-  const [abiertoId, setAbiertoId] = useState<string | null>(null);
-  const [monto, setMonto] = useState("");
-  const [observaciones, setObservaciones] = useState("");
-  const [guardando, setGuardando] = useState(false);
-  const [historialAbierto, setHistorialAbierto] = useState<string | null>(null);
+  const [usuarios, setUsuarios] = useState(usuariosIniciales);
+  const [categorias, setCategorias] = useState(categoriasIniciales);
+  const [marcas, setMarcas] = useState(marcasIniciales);
+  const [nuevaCategoria, setNuevaCategoria] = useState("");
+  const [nuevaMarca, setNuevaMarca] = useState("");
 
-  async function registrarPago(entidadTipo: "cliente" | "proveedor", entidadId: string) {
-    if (!monto || Number(monto) <= 0) return;
-    setGuardando(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const { error } = await supabase.from("movimientos_cuenta").insert({
-      entidad_tipo: entidadTipo,
-      entidad_id: entidadId,
-      tipo: "pago",
-      monto: Number(monto),
-      observaciones: observaciones || null,
-      usuario_id: user?.id ?? null,
-    });
-
-    setGuardando(false);
-    if (error) {
-      alert("Error al registrar: " + error.message);
-      return;
-    }
-    setAbiertoId(null);
-    setMonto("");
-    setObservaciones("");
-    router.refresh();
+  async function cambiarRol(id: string, rol: string) {
+    setUsuarios((prev) => prev.map((u) => (u.id === id ? { ...u, rol } : u)));
+    const { error } = await supabase.from("perfiles").update({ rol }).eq("id", id);
+    if (error) alert("Error al cambiar el rol: " + error.message);
   }
 
-  function Seccion({ titulo, entidadTipo, entidades, labelPago }: { titulo: string; entidadTipo: "cliente" | "proveedor"; entidades: Entidad[]; labelPago: string }) {
-    return (
-      <div className="card">
-        <p className="mb-4 text-sm font-medium text-neutral-500">{titulo}</p>
-        {entidades.length === 0 ? (
-          <p className="text-sm text-neutral-400">Sin saldos pendientes.</p>
-        ) : (
-          <div className="space-y-2">
-            {entidades.map((e) => {
-              const historial = movimientosIniciales.filter((m) => m.entidad_id === e.id);
-              return (
-                <div key={e.id} className="border-b border-neutral-50 pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{e.nombre}</p>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => setHistorialAbierto(historialAbierto === e.id ? null : e.id)}
-                          className="text-xs text-neutral-400 hover:underline"
-                        >
-                          {historialAbierto === e.id ? "ocultar historial" : "ver historial"}
-                        </button>
-                        <Link href={`/cuentas-corrientes/${entidadTipo}/${e.id}`} className="text-xs text-violet-600 hover:underline">
-                          ficha / imprimir
-                        </Link>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`font-semibold ${
-                          e.saldo === 0 ? "text-neutral-400" : e.saldo > 0 ? "text-red-600" : "text-green-600"
-                        }`}
-                      >
-                        ${Math.abs(e.saldo).toFixed(2)} {e.saldo !== 0 && (e.saldo > 0 ? "(debe)" : "(a favor)")}
-                      </span>
-                      <button
-                        onClick={() => setAbiertoId(abiertoId === e.id ? null : e.id)}
-                        className="text-xs font-medium text-violet-600 hover:underline"
-                      >
-                        {labelPago}
-                      </button>
-                    </div>
-                  </div>
+  async function agregarCategoria() {
+    if (!nuevaCategoria.trim()) return;
+    const { data, error } = await supabase.from("categorias").insert({ nombre: nuevaCategoria.trim() }).select().single();
+    if (error) return alert("Error: " + error.message);
+    setCategorias((prev) => [...prev, data]);
+    setNuevaCategoria("");
+  }
 
-                  {abiertoId === e.id && (
-                    <div className="mt-2 flex items-end gap-2 rounded-lg bg-neutral-50 p-3">
-                      <label className="flex-1">
-                        <span className="mb-1 block text-xs text-neutral-500">Monto</span>
-                        <input
-                          type="number"
-                          className="input no-spinner py-1"
-                          value={monto}
-                          onChange={(e) => setMonto(e.target.value)}
-                        />
-                      </label>
-                      <label className="flex-1">
-                        <span className="mb-1 block text-xs text-neutral-500">Observaciones</span>
-                        <input
-                          className="input py-1"
-                          value={observaciones}
-                          onChange={(e) => setObservaciones(e.target.value)}
-                        />
-                      </label>
-                      <button
-                        onClick={() => registrarPago(entidadTipo, e.id)}
-                        disabled={guardando}
-                        className="btn-primary whitespace-nowrap py-1.5"
-                      >
-                        {guardando ? "..." : "Confirmar"}
-                      </button>
-                    </div>
-                  )}
+  async function eliminarCategoria(id: string) {
+    await supabase.from("categorias").delete().eq("id", id);
+    setCategorias((prev) => prev.filter((c) => c.id !== id));
+  }
 
-                  {historialAbierto === e.id && (
-                    <div className="mt-2 space-y-1 rounded-lg bg-neutral-50 p-3 text-xs">
-                      {historial.length === 0 && <p className="text-neutral-400">Sin movimientos.</p>}
-                      {historial.map((m) => (
-                        <div key={m.id} className="flex justify-between">
-                          <span className="text-neutral-500">
-                            {m.fecha} — {m.observaciones ?? m.referencia_tipo}
-                          </span>
-                          <span className={m.tipo === "cargo" ? "text-red-600" : "text-green-600"}>
-                            {m.tipo === "cargo" ? "+" : "-"}${Number(m.monto).toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
+  async function agregarMarca() {
+    if (!nuevaMarca.trim()) return;
+    const { data, error } = await supabase.from("marcas").insert({ nombre: nuevaMarca.trim() }).select().single();
+    if (error) return alert("Error: " + error.message);
+    setMarcas((prev) => [...prev, data]);
+    setNuevaMarca("");
+  }
+
+  async function eliminarMarca(id: string) {
+    await supabase.from("marcas").delete().eq("id", id);
+    setMarcas((prev) => prev.filter((m) => m.id !== id));
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <Seccion titulo="Clientes" entidadTipo="cliente" entidades={clientesConSaldo} labelPago="Registrar cobro" />
-      <Seccion titulo="Proveedores" entidadTipo="proveedor" entidades={proveedoresConSaldo} labelPago="Registrar pago" />
+    <div className="space-y-6">
+      <div className="card">
+        <p className="mb-4 text-sm font-medium text-neutral-500">Usuarios y roles</p>
+        <div className="space-y-2">
+          {usuarios.map((u) => (
+            <div key={u.id} className="flex items-center justify-between border-b border-neutral-50 pb-2">
+              <span className="font-medium">{u.nombre}</span>
+              <select className="input w-36 py-1" value={u.rol} onChange={(e) => cambiarRol(u.id, e.target.value)}>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+          {usuarios.length === 0 && <p className="text-sm text-neutral-400">No hay usuarios cargados.</p>}
+        </div>
+      </div>
+
+      <div className="card">
+        <p className="mb-4 text-sm font-medium text-neutral-500">Categorías de producto</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {categorias.map((c) => (
+            <span key={c.id} className="flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
+              {c.nombre}
+              <button onClick={() => eliminarCategoria(c.id)} className="text-neutral-400 hover:text-red-600">
+                ✕
+              </button>
+            </span>
+          ))}
+          {categorias.length === 0 && <p className="text-sm text-neutral-400">Sin categorías todavía.</p>}
+        </div>
+        <div className="flex gap-2">
+          <input
+            className="input"
+            placeholder="Nueva categoría..."
+            value={nuevaCategoria}
+            onChange={(e) => setNuevaCategoria(e.target.value)}
+          />
+          <button onClick={agregarCategoria} className="btn-secondary whitespace-nowrap">
+            + Agregar
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <p className="mb-4 text-sm font-medium text-neutral-500">Marcas</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {marcas.map((m) => (
+            <span key={m.id} className="flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
+              {m.nombre}
+              <button onClick={() => eliminarMarca(m.id)} className="text-neutral-400 hover:text-red-600">
+                ✕
+              </button>
+            </span>
+          ))}
+          {marcas.length === 0 && <p className="text-sm text-neutral-400">Sin marcas todavía.</p>}
+        </div>
+        <div className="flex gap-2">
+          <input className="input" placeholder="Nueva marca..." value={nuevaMarca} onChange={(e) => setNuevaMarca(e.target.value)} />
+          <button onClick={agregarMarca} className="btn-secondary whitespace-nowrap">
+            + Agregar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
