@@ -14,11 +14,12 @@ import {
   ShoppingBag,
   Factory,
   BarChart3,
-  Settings,
+    Settings,
   Menu,
   X,
   RotateCcw,
   Wallet,
+  Landmark,
 } from "lucide-react";
 
 const items = [
