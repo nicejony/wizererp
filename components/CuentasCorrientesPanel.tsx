@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 interface Entidad {
@@ -21,6 +22,9 @@ export default function CuentasCorrientesPanel({
 }) {
   const router = useRouter();
   const supabase = createClient();
+
+  const totalACobrar = clientesConSaldo.filter((c) => c.saldo > 0).reduce((s, c) => s + c.saldo, 0);
+  const totalAPagar = proveedoresConSaldo.filter((p) => p.saldo > 0).reduce((s, p) => s + p.saldo, 0);
 
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   const [monto, setMonto] = useState("");
@@ -71,20 +75,29 @@ export default function CuentasCorrientesPanel({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">{e.nombre}</p>
-                      <button
-                        onClick={() => setHistorialAbierto(historialAbierto === e.id ? null : e.id)}
-                        className="text-xs text-neutral-400 hover:underline"
-                      >
-                        {historialAbierto === e.id ? "ocultar historial" : "ver historial"}
-                      </button>
+                      <div className="flex gap-3 no-print">
+                        <button
+                          onClick={() => setHistorialAbierto(historialAbierto === e.id ? null : e.id)}
+                          className="text-xs text-neutral-400 hover:underline"
+                        >
+                          {historialAbierto === e.id ? "ocultar historial" : "ver historial"}
+                        </button>
+                        <Link href={`/cuentas-corrientes/${entidadTipo}/${e.id}`} className="text-xs text-violet-600 hover:underline">
+                          ficha / imprimir
+                        </Link>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`font-semibold ${e.saldo > 0 ? "text-red-600" : "text-green-600"}`}>
-                        ${Math.abs(e.saldo).toFixed(2)} {e.saldo > 0 ? "(debe)" : "(a favor)"}
+                      <span
+                        className={`font-semibold ${
+                          e.saldo === 0 ? "text-neutral-400" : e.saldo > 0 ? "text-red-600" : "text-green-600"
+                        }`}
+                      >
+                        ${Math.abs(e.saldo).toFixed(2)} {e.saldo !== 0 && (e.saldo > 0 ? "(debe)" : "(a favor)")}
                       </span>
                       <button
                         onClick={() => setAbiertoId(abiertoId === e.id ? null : e.id)}
-                        className="text-xs font-medium text-violet-600 hover:underline"
+                        className="text-xs font-medium text-violet-600 hover:underline no-print"
                       >
                         {labelPago}
                       </button>
@@ -92,7 +105,7 @@ export default function CuentasCorrientesPanel({
                   </div>
 
                   {abiertoId === e.id && (
-                    <div className="mt-2 flex items-end gap-2 rounded-lg bg-neutral-50 p-3">
+                    <div className="mt-2 flex items-end gap-2 rounded-lg bg-neutral-50 p-3 no-print">
                       <label className="flex-1">
                         <span className="mb-1 block text-xs text-neutral-500">Monto</span>
                         <input
@@ -146,6 +159,16 @@ export default function CuentasCorrientesPanel({
 
   return (
     <div className="max-w-2xl space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="card">
+          <p className="text-sm text-neutral-500">Total a cobrar (clientes)</p>
+          <p className="text-2xl font-semibold text-red-600">${totalACobrar.toFixed(2)}</p>
+        </div>
+        <div className="card">
+          <p className="text-sm text-neutral-500">Total a pagar (proveedores)</p>
+          <p className="text-2xl font-semibold text-red-600">${totalAPagar.toFixed(2)}</p>
+        </div>
+      </div>
       <Seccion titulo="Clientes" entidadTipo="cliente" entidades={clientesConSaldo} labelPago="Registrar cobro" />
       <Seccion titulo="Proveedores" entidadTipo="proveedor" entidades={proveedoresConSaldo} labelPago="Registrar pago" />
     </div>
