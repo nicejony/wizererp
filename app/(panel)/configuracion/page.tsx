@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import ConfiguracionPanel from "@/components/ConfiguracionPanel";
+import BackupManager from "@/components/BackupManager";
 
 export default async function ConfiguracionPage() {
   const supabase = createClient();
@@ -11,13 +12,14 @@ export default async function ConfiguracionPage() {
   ]);
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold">Configuración</h1>
+    <div className="max-w-2xl space-y-6">
+      <h1 className="text-2xl font-semibold">Configuración</h1>
       <ConfiguracionPanel
         usuariosIniciales={usuarios ?? []}
         categoriasIniciales={categorias ?? []}
         marcasIniciales={marcas ?? []}
       />
+      <BackupManager />
     </div>
   );
 }
