@@ -16,13 +16,13 @@ export default async function CuentasCorrientesPage() {
     saldos[m.entidad_id] = (saldos[m.entidad_id] ?? 0) + signo * Number(m.monto);
   }
 
-  const clientesConSaldo = (clientes ?? [])
+    const clientesConSaldo = (clientes ?? [])
     .map((c) => ({ id: c.id, nombre: c.nombre, saldo: saldos[c.id] ?? 0 }))
-    .filter((c) => c.saldo !== 0);
+    .sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
 
   const proveedoresConSaldo = (proveedores ?? [])
     .map((p) => ({ id: p.id, nombre: p.nombre, saldo: saldos[p.id] ?? 0 }))
-    .filter((p) => p.saldo !== 0);
+    .sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
 
   return (
     <div>
