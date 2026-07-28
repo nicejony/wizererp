@@ -168,7 +168,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
           <button onClick={() => window.print()} className="btn-secondary">
             🖨️ Imprimir
           </button>
-          <DocumentoAcciones documentoId={documento.id} tipo={documento.tipo} estado={documento.estado} />
+                    <DocumentoAcciones documentoId={documento.id} tipo={documento.tipo} estado={documento.estado} clienteId={documento.cliente_id} />
         </div>
       </div>
 
