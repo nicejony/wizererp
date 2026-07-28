@@ -10,10 +10,12 @@ export default function DocumentoAcciones({
   documentoId,
   tipo,
   estado,
+  clienteId,
 }: {
   documentoId: string;
   tipo: DocumentoTipo;
   estado: string;
+  clienteId?: string | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,15 @@ export default function DocumentoAcciones({
     setLoading(true);
     try {
       await convertirDocumento(documentoId, siguienteTipo!);
+
+      if (siguienteTipo === "remito" && clienteId) {
+        const imprimir = confirm("Pedido convertido a Remito. ¿Querés imprimir el cartel de expreso para este envío?");
+        if (imprimir) {
+          router.push(`/etiqueta/${clienteId}`);
+          return;
+        }
+      }
+
       router.refresh();
     } catch (e) {
       alert("No se pudo convertir: " + (e as Error).message);
