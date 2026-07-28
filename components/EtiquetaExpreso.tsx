@@ -7,7 +7,7 @@ import BotonImprimir from "@/components/BotonImprimir";
 export default function EtiquetaExpreso({ cliente }: { cliente: any }) {
   const [nombreExpreso, setNombreExpreso] = useState(cliente.nombre_expreso ?? "");
 
-  const ciudadLinea = [cliente.direccion, cliente.localidad, cliente.provincia, cliente.codigo_postal]
+    const ciudadLinea = [cliente.direccion, cliente.localidad, cliente.provincia, cliente.codigo_postal && `CP ${cliente.codigo_postal}`]
     .filter(Boolean)
     .join(" — ");
 
@@ -27,7 +27,9 @@ export default function EtiquetaExpreso({ cliente }: { cliente: any }) {
         </label>
       </div>
 
-      <div className="card space-y-4 border-2 border-neutral-800 text-lg">
+      <div className="card relative space-y-4 border-2 border-neutral-800 text-lg">
+        <span className="absolute right-4 top-4 text-xs font-bold tracking-wide text-violet-700">WIZER</span>
+
         <p className="text-2xl font-bold">{cliente.nombre}</p>
         {cliente.cuit && <p className="text-neutral-600">CUIT: {cliente.cuit}</p>}
 
