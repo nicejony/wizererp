@@ -30,11 +30,11 @@ export default function EtiquetaExpreso({ cliente }: { cliente: any }) {
       <div className="card relative space-y-4 border-2 border-neutral-800 text-lg">
         <span className="absolute right-4 top-4 text-xs font-bold tracking-wide text-violet-700">WIZER</span>
 
-                <p className="text-2xl font-bold">{cliente.nombre}</p>
+                        <p className="text-2xl font-bold">{cliente.nombre}</p>
         {cliente.observaciones && <p className="text-base text-neutral-700">{cliente.observaciones}</p>}
-        {cliente.cuit && <p className="text-neutral-600">CUIT: {cliente.cuit}</p>}
+        {cliente.cuit && <p className="text-sm text-neutral-600">CUIT: {cliente.cuit}</p>}
 
-        <p className="border-t border-neutral-200 pt-4">{ciudadLinea || "—"}</p>
+        <p className="border-t border-neutral-200 pt-4">Dirección: {ciudadLinea || "—"}</p>
 
         {cliente.telefono && <p>Tel: {cliente.telefono}</p>}
 
