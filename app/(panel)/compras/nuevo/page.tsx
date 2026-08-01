@@ -240,7 +240,7 @@ export default function NuevaCompraPage() {
           <div className="mt-4 flex justify-end border-t border-neutral-100 pt-4">
             <div className="text-right">
               <p className="text-sm text-neutral-500">Total</p>
-              <p className="text-2xl font-semibold text-violet-700">${total.toFixed(2)}</p>
+                            <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(total)}</p>
             </div>
           </div>
         </div>
