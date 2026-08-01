@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ProductoVariante, Deposito } from "@/lib/types";
+import { formatearMoneda } from "@/lib/format";
 
 interface ItemCompra {
   variante_id: string;
