@@ -225,7 +225,7 @@ export default function NuevaCompraPage() {
                         onChange={(e) => actualizarItem(idx, "costo_unitario", Number(e.target.value))}
                       />
                     </td>
-                    <td className="py-2 text-right font-medium">${(item.cantidad * item.costo_unitario).toFixed(2)}</td>
+                                        <td className="py-2 text-right font-medium">${formatearMoneda(item.cantidad * item.costo_unitario)}</td>
                     <td className="py-2 text-center">
                       <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
                         ✕
