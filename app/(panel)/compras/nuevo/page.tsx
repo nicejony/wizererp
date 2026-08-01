@@ -181,7 +181,7 @@ export default function NuevaCompraPage() {
                   <span>
                     {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}
                   </span>
-                  <span className="text-neutral-400">costo: ${v.producto?.costo}</span>
+                                    <span className="text-neutral-400">costo: ${formatearMoneda(v.producto?.costo ?? 0)}</span>
                 </button>
               ))}
             </div>
