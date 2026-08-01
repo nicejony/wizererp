@@ -47,8 +47,9 @@ export default async function ProductosPage() {
                 </td>
                 <td className="px-4 py-3">{v.color ?? "—"}</td>
                 <td className="px-4 py-3 text-right">${v.productos?.costo}</td>
-                <td className="px-4 py-3 text-right">${v.productos?.precio_mayorista}</td>
-                <td className="px-4 py-3 text-right">${v.productos?.precio_minorista}</td>
+                                <td className="px-4 py-3 text-right">${formatearMoneda(v.productos?.costo ?? 0)}</td>
+                <td className="px-4 py-3 text-right">${formatearMoneda(v.productos?.precio_mayorista ?? 0)}</td>
+                <td className="px-4 py-3 text-right">${formatearMoneda(v.productos?.precio_minorista ?? 0)}</td>
                 <td className="px-4 py-3 text-right">
                   <span className={v.stock_total <= v.stock_minimo ? "font-semibold text-red-600" : "text-neutral-700"}>
                     {v.stock_total}
