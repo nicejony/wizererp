@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import BotonImprimir from "@/components/BotonImprimir";
+import { formatearMoneda } from "@/lib/format";
 
 export default async function ProductosPage() {
   const supabase = createClient();
