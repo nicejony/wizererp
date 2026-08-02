@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Cliente, DocumentoItem, ProductoVariante, TipoPrecio, FORMAS_PAGO } from "@/lib/types";
+import { formatearMoneda } from "@/lib/format";
 
 function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio): number {
   const p = v.producto!;
