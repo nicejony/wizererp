@@ -24,7 +24,7 @@ export default async function VentasPage() {
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="card">
           <p className="text-sm text-neutral-500">Total vendido</p>
-          <p className="mt-1 text-2xl font-semibold">${totalVentas.toLocaleString("es-AR")}</p>
+                    <p className="mt-1 text-2xl font-semibold">${formatearMoneda(totalVentas)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Margen total</p>
