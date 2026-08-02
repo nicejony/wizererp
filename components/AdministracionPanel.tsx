@@ -109,7 +109,7 @@ export default function AdministracionPanel({
                           {m.fecha} — {m.concepto ?? m.referencia_tipo ?? "—"}
                         </span>
                         <span className={m.tipo === "ingreso" ? "text-green-600" : "text-red-600"}>
-                          {m.tipo === "ingreso" ? "+" : "-"}${Number(m.monto).toFixed(2)}
+                                                    {m.tipo === "ingreso" ? "+" : "-"}${formatearMoneda(Number(m.monto))}
                         </span>
                       </div>
                     ))}
