@@ -48,7 +48,7 @@ export default async function RemitosPage() {
                     {d.estado}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right font-medium">${d.total}</td>
+                                <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
                 <td className="px-4 py-3 text-right no-print">
                   <DocumentoAcciones documentoId={d.id} tipo="remito" estado={d.estado} />
                 </td>
