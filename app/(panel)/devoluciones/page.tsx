@@ -40,7 +40,7 @@ export default async function DevolucionesPage() {
                 </td>
                 <td className="px-4 py-3">{d.fecha}</td>
                 <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
-                <td className="px-4 py-3 text-right font-medium text-red-600">-${d.total}</td>
+                                <td className="px-4 py-3 text-right font-medium text-red-600">-${formatearMoneda(d.total)}</td>
               </tr>
             ))}
             {(!documentos || documentos.length === 0) && (
