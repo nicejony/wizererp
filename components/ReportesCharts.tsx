@@ -1,7 +1,7 @@
 "use client";
 
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
+import { formatearMoneda } from "@/lib/format";
 interface Props {
   ventasPorMes: { mes: string; ventas: number; margen: number }[];
   topProductos: { nombre: string; cantidad: number }[];
