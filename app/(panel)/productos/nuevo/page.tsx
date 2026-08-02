@@ -110,17 +110,29 @@ export default function NuevoProductoPage() {
         <div className="card space-y-4">
           <p className="text-sm font-medium text-neutral-500">Datos generales (compartidos por todos los colores)</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label>
-              <span className="mb-1 block text-sm font-medium">Código *</span>
-              <input required className="input" value={form.codigo} onChange={(e) => update("codigo", e.target.value)} />
+                        <label>
+              <span className="mb-1 block text-sm font-medium">Costo</span>
+              <div className="flex gap-2">
+                <input type="number" step="0.01" className="input no-spinner" value={form.costo} onChange={(e) => update("costo", e.target.value)} />
+                <select className="input w-24" value={form.moneda_costo} onChange={(e) => update("moneda_costo", e.target.value)}>
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
             </label>
             <label>
-              <span className="mb-1 block text-sm font-medium">Nombre *</span>
-              <input required className="input" value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
+              <span className="mb-1 block text-sm font-medium">Precio Mayorista</span>
+              <input type="number" step="0.01" className="input no-spinner" value={form.precio_mayorista} onChange={(e) => update("precio_mayorista", e.target.value)} />
             </label>
             <label>
-              <span className="mb-1 block text-sm font-medium">Rodado</span>
-              <input className="input" value={form.rodado} onChange={(e) => update("rodado", e.target.value)} />
+              <span className="mb-1 block text-sm font-medium">Precio Minorista</span>
+              <div className="flex gap-2">
+                <input type="number" step="0.01" className="input no-spinner" value={form.precio_minorista} onChange={(e) => update("precio_minorista", e.target.value)} />
+                <select className="input w-24" value={form.moneda_venta} onChange={(e) => update("moneda_venta", e.target.value)}>
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
             </label>
             <label>
               <span className="mb-1 block text-sm font-medium">Costo</span>
