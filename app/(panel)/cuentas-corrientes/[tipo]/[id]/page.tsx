@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import BotonImprimir from "@/components/BotonImprimir";
+import { formatearMoneda } from "@/lib/format";
 
 export default async function FichaCuentaCorrientePage({ params }: { params: { tipo: string; id: string } }) {
   const supabase = createClient();
