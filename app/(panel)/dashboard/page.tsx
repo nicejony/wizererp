@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card">
           <p className="text-sm text-neutral-500">Ventas del día</p>
-          <p className="mt-1 text-2xl font-semibold">${totalHoy.toLocaleString("es-AR")}</p>
+                    <p className="mt-1 text-2xl font-semibold">${formatearMoneda(totalHoy)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Ventas del mes</p>
