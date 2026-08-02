@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 import BotonImprimir from "@/components/BotonImprimir";
+import { formatearMoneda } from "@/lib/format";
 
 export default async function RemitosPage() {
   const supabase = createClient();
