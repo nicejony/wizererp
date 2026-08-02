@@ -34,7 +34,7 @@ export default async function ComprasPage() {
                 <td className="px-4 py-3 font-mono text-xs">#{c.numero}</td>
                 <td className="px-4 py-3">{c.fecha}</td>
                 <td className="px-4 py-3 font-medium">{c.proveedores?.nombre ?? "—"}</td>
-                <td className="px-4 py-3 text-right">${c.total}</td>
+                                <td className="px-4 py-3 text-right">${formatearMoneda(c.total)}</td>
               </tr>
             ))}
             {(!compras || compras.length === 0) && (
