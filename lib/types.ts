@@ -5,11 +5,14 @@ export interface Producto {
   talle: string | null;
   rodado: string | null;
   modelo: string | null;
-  costo: number;
+    costo: number;
+  moneda_costo: "ARS" | "USD";
   precio_mayorista: number;
   precio_minorista: number;
   precio_promocion: number | null;
+  moneda_venta: "ARS" | "USD";
   activo: boolean;
+}
 }
 
 export interface Deposito {
