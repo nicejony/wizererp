@@ -280,7 +280,7 @@ export default function NuevoPresupuestoPage() {
                     onChange={(e) => actualizarItem(idx, "descuento_porcentaje", Number(e.target.value))}
                   />
                 </td>
-                <td className="px-3 py-2 text-right font-medium">${item.subtotal.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right font-medium">${formatearMoneda(item.subtotal)}</td>
                 <td className="px-3 py-2 text-center">
                   <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
                     ✕
