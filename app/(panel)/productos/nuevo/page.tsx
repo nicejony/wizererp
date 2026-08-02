@@ -55,9 +55,11 @@ export default function NuevoProductoPage() {
         codigo: form.codigo,
         nombre: form.nombre,
         rodado: form.rodado || null,
-        costo: Number(form.costo) || 0,
+                costo: Number(form.costo) || 0,
+        moneda_costo: form.moneda_costo,
         precio_mayorista: Number(form.precio_mayorista) || 0,
         precio_minorista: Number(form.precio_minorista) || 0,
+        moneda_venta: form.moneda_venta,
       })
       .select()
       .single();
