@@ -94,7 +94,7 @@ export default function CuentasCorrientesPanel({
                           e.saldo === 0 ? "text-neutral-400" : e.saldo > 0 ? "text-red-600" : "text-green-600"
                         }`}
                       >
-                        ${Math.abs(e.saldo).toFixed(2)} {e.saldo !== 0 && (e.saldo > 0 ? "(debe)" : "(a favor)")}
+                                                ${formatearMoneda(Math.abs(e.saldo))} {e.saldo !== 0 && (e.saldo > 0 ? "(debe)" : "(a favor)")}
                       </span>
                       <button
                         onClick={() => setAbiertoId(abiertoId === e.id ? null : e.id)}
