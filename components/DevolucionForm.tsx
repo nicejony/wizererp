@@ -123,7 +123,7 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
       <div className="mb-4 flex justify-end">
         <div className="text-right">
           <p className="text-sm text-neutral-500">Total a devolver</p>
-          <p className="text-2xl font-semibold text-violet-700">${totalDevolucion.toFixed(2)}</p>
+                    <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(totalDevolucion)}</p>
         </div>
       </div>
 
