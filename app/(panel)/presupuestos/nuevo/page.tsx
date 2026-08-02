@@ -320,7 +320,7 @@ export default function NuevoPresupuestoPage() {
         </div>
         <div className="flex flex-col items-start justify-end sm:items-end">
           <span className="text-sm text-neutral-500">Total</span>
-          <span className="text-3xl font-semibold text-violet-700">${total.toFixed(2)}</span>
+                    <span className="text-3xl font-semibold text-violet-700">${formatearMoneda(total)}</span>
         </div>
       </div>
 
