@@ -165,11 +165,11 @@ export default function CuentasCorrientesPanel({
       <div className="grid grid-cols-2 gap-4">
         <div className="card">
           <p className="text-sm text-neutral-500">Total a cobrar (clientes)</p>
-          <p className="text-2xl font-semibold text-red-600">${totalACobrar.toFixed(2)}</p>
+                    <p className="text-2xl font-semibold text-red-600">${formatearMoneda(totalACobrar)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Total a pagar (proveedores)</p>
-          <p className="text-2xl font-semibold text-red-600">${totalAPagar.toFixed(2)}</p>
+          <p className="text-2xl font-semibold text-red-600">${formatearMoneda(totalAPagar)}</p>
         </div>
       </div>
       <Seccion titulo="Clientes" entidadTipo="cliente" entidades={clientesConSaldo} labelPago="Registrar cobro" />
