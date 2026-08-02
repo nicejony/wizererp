@@ -294,7 +294,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
                     `${item.descuento_porcentaje}%`
                   )}
                 </td>
-                <td className="py-2 text-right font-medium">${item.subtotal.toFixed(2)}</td>
+                                <td className="py-2 text-right font-medium">${formatearMoneda(item.subtotal)}</td>
                 {editando && (
                   <td className="no-print py-2 text-center">
                     <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
