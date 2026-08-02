@@ -279,7 +279,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
                       onChange={(e) => actualizarItem(idx, "precio_unitario", Number(e.target.value))}
                     />
                   ) : (
-                    `$${item.precio_unitario}`
+                                        `$${formatearMoneda(item.precio_unitario)}`
                   )}
                 </td>
                 <td className="py-2">
