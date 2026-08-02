@@ -114,7 +114,7 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
                   onChange={(e) => actualizar(i.id, Number(e.target.value), i.cantidad)}
                 />
               </td>
-              <td className="py-2 text-right">${i.precio_unitario}</td>
+                            <td className="py-2 text-right">${formatearMoneda(i.precio_unitario)}</td>
             </tr>
           ))}
         </tbody>
