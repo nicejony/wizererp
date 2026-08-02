@@ -142,10 +142,8 @@ export default function CuentasCorrientesPanel({
                           <span className="text-neutral-500">
                             {m.fecha} — {m.observaciones ?? m.referencia_tipo}
                           </span>
-                                                    <span className={m.tipo === "cargo" ? "text-red-600" : "text-green-600"}>
+                                                                              <span className={m.tipo === "cargo" ? "text-red-600" : "text-green-600"}>
                             {m.tipo === "cargo" ? "+" : "-"}${formatearMoneda(Number(m.monto))}
-                          </span>
-                            {m.tipo === "cargo" ? "+" : "-"}${Number(m.monto).toFixed(2)}
                           </span>
                         </div>
                       ))}
