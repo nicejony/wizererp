@@ -55,8 +55,8 @@ export default async function VentasPage() {
                   </td>
                   <td className="px-4 py-3">{d.fecha}</td>
                   <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
-                  <td className="px-4 py-3 text-right font-medium">${d.total}</td>
-                  <td className="px-4 py-3 text-right text-green-700">${margen.toFixed(2)}</td>
+                                    <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
+                  <td className="px-4 py-3 text-right text-green-700">${formatearMoneda(margen)}</td>
                 </tr>
               );
             })}
