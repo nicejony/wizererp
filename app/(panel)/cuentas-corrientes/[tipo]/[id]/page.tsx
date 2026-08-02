@@ -79,7 +79,7 @@ export default async function FichaCuentaCorrientePage({ params }: { params: { t
           <div className="text-right">
             <p className="text-sm text-neutral-500">Saldo actual</p>
             <p className={`text-2xl font-semibold ${saldoCorrido > 0 ? "text-red-600" : saldoCorrido < 0 ? "text-green-600" : "text-neutral-400"}`}>
-              ${Math.abs(saldoCorrido).toFixed(2)} {saldoCorrido !== 0 && (saldoCorrido > 0 ? "(debe)" : "(a favor)")}
+                            ${formatearMoneda(Math.abs(saldoCorrido))} {saldoCorrido !== 0 && (saldoCorrido > 0 ? "(debe)" : "(a favor)")}
             </p>
           </div>
         </div>
