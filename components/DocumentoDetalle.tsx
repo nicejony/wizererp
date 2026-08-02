@@ -6,6 +6,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ProductoVariante, TipoPrecio, FORMAS_PAGO } from "@/lib/types";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
+import { formatearMoneda } from "@/lib/format";
+
 
 interface ItemRow {
   id?: string;
