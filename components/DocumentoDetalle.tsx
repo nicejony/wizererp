@@ -232,7 +232,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
                     <span>
                       {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}
                     </span>
-                    <span className="font-medium">${v.producto?.precio_minorista}</span>
+                                        <span className="font-medium">${formatearMoneda(v.producto?.precio_minorista ?? 0)}</span>
                   </button>
                 ))}
               </div>
