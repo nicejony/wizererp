@@ -41,7 +41,7 @@ export default async function ClientesPage() {
                 <td className="px-4 py-3">{c.empresa ?? "—"}</td>
                 <td className="px-4 py-3">{c.whatsapp ?? c.telefono ?? "—"}</td>
                 <td className="px-4 py-3">{c.localidad ?? "—"}</td>
-                <td className="px-4 py-3 text-right">${c.saldo}</td>
+                                <td className="px-4 py-3 text-right">${formatearMoneda(c.saldo)}</td>
               </tr>
             ))}
             {(!clientes || clientes.length === 0) && (
