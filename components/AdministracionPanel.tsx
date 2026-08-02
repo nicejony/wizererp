@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { formatearMoneda } from "@/lib/format";
 
 interface Caja {
   id: string;
