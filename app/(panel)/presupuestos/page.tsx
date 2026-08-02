@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 import BotonImprimir from "@/components/BotonImprimir";
+import { formatearMoneda } from "@/lib/format";
 
 export default async function PresupuestosPage() {
   const supabase = createClient();
