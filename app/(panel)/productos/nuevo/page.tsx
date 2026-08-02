@@ -15,13 +15,16 @@ export default function NuevoProductoPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
 
-  const [form, setForm] = useState({
+    const [form, setForm] = useState({
     codigo: "",
     nombre: "",
     rodado: "",
     costo: "",
+    moneda_costo: "ARS",
     precio_mayorista: "",
     precio_minorista: "",
+    moneda_venta: "ARS",
+  });
   });
 
   const [variantes, setVariantes] = useState<VarianteForm[]>([{ color: "", stock: "0", stock_minimo: "0" }]);
