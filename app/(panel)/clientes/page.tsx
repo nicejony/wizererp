@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { formatearMoneda } from "@/lib/format";
 
 export default async function ClientesPage() {
   const supabase = createClient();
