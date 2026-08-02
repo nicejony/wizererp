@@ -60,9 +60,9 @@ export default async function FichaCuentaCorrientePage({ params }: { params: { t
               <tr key={m.id} className="border-b border-neutral-50">
                 <td className="py-2">{m.fecha}</td>
                 <td className="py-2">{m.observaciones ?? m.referencia_tipo ?? "—"}</td>
-                <td className="py-2 text-right text-red-600">{m.tipo === "cargo" ? `$${Number(m.monto).toFixed(2)}` : ""}</td>
-                <td className="py-2 text-right text-green-600">{m.tipo === "pago" ? `$${Number(m.monto).toFixed(2)}` : ""}</td>
-                <td className="py-2 text-right font-medium">${m.saldoCorrido.toFixed(2)}</td>
+                                <td className="py-2 text-right text-red-600">{m.tipo === "cargo" ? `$${formatearMoneda(Number(m.monto))}` : ""}</td>
+                <td className="py-2 text-right text-green-600">{m.tipo === "pago" ? `$${formatearMoneda(Number(m.monto))}` : ""}</td>
+                <td className="py-2 text-right font-medium">${formatearMoneda(m.saldoCorrido)}</td>
               </tr>
             ))}
             {filas.length === 0 && (
