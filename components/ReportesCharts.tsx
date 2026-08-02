@@ -16,15 +16,15 @@ export default function ReportesCharts({ ventasPorMes, topProductos, ventasTotal
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="card">
           <p className="text-sm text-neutral-500">Ventas (últimos 6 meses)</p>
-          <p className="text-2xl font-semibold text-violet-700">${ventasTotal.toFixed(0)}</p>
+                    <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(ventasTotal)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Margen (últimos 6 meses)</p>
-          <p className="text-2xl font-semibold text-green-600">${margenTotal.toFixed(0)}</p>
+          <p className="text-2xl font-semibold text-green-600">${formatearMoneda(margenTotal)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Valor de stock (a costo)</p>
-          <p className="text-2xl font-semibold text-neutral-700">${valorStock.toFixed(0)}</p>
+          <p className="text-2xl font-semibold text-neutral-700">${formatearMoneda(valorStock)}</p>
         </div>
       </div>
 
