@@ -48,7 +48,7 @@ export default async function DashboardPage() {
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Ventas del mes</p>
-          <p className="mt-1 text-2xl font-semibold">${totalMes.toLocaleString("es-AR")}</p>
+                    <p className="mt-1 text-2xl font-semibold">${formatearMoneda(totalMes)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Productos con poco stock</p>
