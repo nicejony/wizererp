@@ -96,7 +96,7 @@ export default function AdministracionPanel({
                     </button>
                   </div>
                   <span className={`font-semibold ${c.saldo < 0 ? "text-red-600" : "text-green-600"}`}>
-                    ${c.saldo.toFixed(2)}
+                                        ${formatearMoneda(c.saldo)}
                   </span>
                 </div>
 
