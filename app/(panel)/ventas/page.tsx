@@ -28,7 +28,7 @@ export default async function VentasPage() {
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Margen total</p>
-          <p className="mt-1 text-2xl font-semibold text-green-700">${totalMargen.toLocaleString("es-AR")}</p>
+                    <p className="mt-1 text-2xl font-semibold text-green-700">${formatearMoneda(totalMargen)}</p>
         </div>
       </div>
 
