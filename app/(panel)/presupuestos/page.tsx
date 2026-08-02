@@ -51,7 +51,7 @@ export default async function PresupuestosPage() {
                     {d.estado}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right font-medium">${d.total}</td>
+                                <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
                 <td className="px-4 py-3 text-right no-print">
                   <DocumentoAcciones documentoId={d.id} tipo="presupuesto" estado={d.estado} />
                 </td>
