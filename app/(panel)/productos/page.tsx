@@ -7,7 +7,7 @@ export default async function ProductosPage() {
   const supabase = createClient();
   const { data: variantes } = await supabase
     .from("variante_resumen")
-    .select("*, productos(codigo, nombre, costo, precio_mayorista, precio_minorista)")
+    .select("*, productos(codigo, nombre, costo, moneda_costo, precio_mayorista, precio_minorista, moneda_venta)")
     .eq("activo", true)
     .order("producto_id");
 
@@ -46,10 +46,18 @@ export default async function ProductosPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-3">{v.color ?? "—"}</td>
-                <td className="px-4 py-3 text-right">${v.productos?.costo}</td>
-                                <td className="px-4 py-3 text-right">${formatearMoneda(v.productos?.costo ?? 0)}</td>
-                <td className="px-4 py-3 text-right">${formatearMoneda(v.productos?.precio_mayorista ?? 0)}</td>
-                <td className="px-4 py-3 text-right">${formatearMoneda(v.productos?.precio_minorista ?? 0)}</td>
+                <td className="px-4 py-3 text-right">
+                  ${formatearMoneda(v.productos?.costo ?? 0)}
+                  {v.productos?.moneda_costo === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  ${formatearMoneda(v.productos?.precio_mayorista ?? 0)}
+                  {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  ${formatearMoneda(v.productos?.precio_minorista ?? 0)}
+                  {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <span className={v.stock_total <= v.stock_minimo ? "font-semibold text-red-600" : "text-neutral-700"}>
                     {v.stock_total}
