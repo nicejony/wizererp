@@ -13,7 +13,7 @@ export interface Producto {
   moneda_venta: "ARS" | "USD";
   activo: boolean;
 }
-}
+
 
 export interface Deposito {
   id: string;
