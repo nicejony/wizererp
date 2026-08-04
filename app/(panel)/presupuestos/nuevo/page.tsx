@@ -74,7 +74,9 @@ export default function NuevoPresupuestoPage() {
             : i
         );
       }
-                    const precio = precioSegunTipo(v, "minorista", tipoCambio);
+                          const precio = precioSegunTipo(v, "minorista", tipoCambio);
+      const costoBase = v.producto?.costo ?? 0;
+      const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambio : costoBase;
       return [
         ...prev,
         {
@@ -82,7 +84,7 @@ export default function NuevoPresupuestoPage() {
           variante: v,
           cantidad: 1,
           precio_unitario: precio,
-          costo_unitario: v.producto?.costo ?? 0,
+          costo_unitario: costoEnPesos,
           descuento_porcentaje: 0,
           subtotal: precio,
           tipoPrecio: "minorista",
