@@ -109,7 +109,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
   }
 
   function agregarVariante(v: ProductoVariante) {
-    const precio = precioSegunTipo(v, "minorista");
+        const precio = precioSegunTipo(v, "minorista", tipoCambio);
     setItems((prev) => [
       ...prev,
       {
