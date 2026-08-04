@@ -74,7 +74,7 @@ export default function NuevoPresupuestoPage() {
             : i
         );
       }
-      const precio = precioSegunTipo(v, "minorista");
+              const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.variante, tipo);
       return [
         ...prev,
         {
