@@ -54,20 +54,24 @@ export default async function ReportesPage() {
     .slice(0, 5)
     .map(([nombre, cantidad]) => ({ nombre, cantidad }));
 
-  // Valor de stock total (a costo)
+    // Valor de stock total (a costo, convirtiendo a pesos lo que está en USD)
+  const { data: tipoCambioData } = await supabase.from("tipo_cambio").select("valor").limit(1).single();
+  const tipoCambio = Number(tipoCambioData?.valor) || 1;
+
   const idsProductos = [...new Set((stockResumen ?? []).map((v: any) => v.producto_id))];
   const { data: productosCosto } =
     idsProductos.length > 0
-      ? await supabase.from("productos").select("id, costo").in("id", idsProductos)
+      ? await supabase.from("productos").select("id, costo, moneda_costo").in("id", idsProductos)
       : { data: [] };
   const costoPorProducto: Record<string, number> = {};
-  for (const p of productosCosto ?? []) costoPorProducto[p.id] = Number(p.costo);
+  for (const p of productosCosto ?? []) {
+    costoPorProducto[p.id] = p.moneda_costo === "USD" ? Number(p.costo) * tipoCambio : Number(p.costo);
+  }
 
   const valorStock = (stockResumen ?? []).reduce(
     (s: number, v: any) => s + Number(v.stock_total) * (costoPorProducto[v.producto_id] ?? 0),
     0
   );
-
   return (
     <div>
       <h1 className="mb-6 text-2xl font-semibold">Reportes</h1>
