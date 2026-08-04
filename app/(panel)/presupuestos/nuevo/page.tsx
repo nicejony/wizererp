@@ -27,9 +27,19 @@ export default function NuevoPresupuestoPage() {
   const [productoResultados, setProductoResultados] = useState<ProductoVariante[]>([]);
   const [items, setItems] = useState<(DocumentoItem & { tipoPrecio: TipoPrecio })[]>([]);
 
-  const [observaciones, setObservaciones] = useState("");
+    const [observaciones, setObservaciones] = useState("");
   const [formaPago, setFormaPago] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [tipoCambio, setTipoCambio] = useState(1);
+
+  useEffect(() => {
+    supabase
+      .from("tipo_cambio")
+      .select("valor")
+      .limit(1)
+      .single()
+      .then(({ data }) => setTipoCambio(Number(data?.valor) || 1));
+  }, []);
 
   useEffect(() => {
     if (clienteQuery.length < 2) return setClienteResultados([]);
