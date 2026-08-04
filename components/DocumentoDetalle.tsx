@@ -68,8 +68,18 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
     }))
   );
 
-  const [productoQuery, setProductoQuery] = useState("");
+    const [productoQuery, setProductoQuery] = useState("");
   const [productoResultados, setProductoResultados] = useState<ProductoVariante[]>([]);
+  const [tipoCambio, setTipoCambio] = useState(1);
+
+  useEffect(() => {
+    supabase
+      .from("tipo_cambio")
+      .select("valor")
+      .limit(1)
+      .single()
+      .then(({ data }) => setTipoCambio(Number(data?.valor) || 1));
+  }, []);
 
   useEffect(() => {
     if (productoQuery.length < 2) return setProductoResultados([]);
