@@ -23,8 +23,10 @@ export default function ProductoEditor({
     nombre: producto.nombre,
     rodado: producto.rodado ?? "",
     costo: String(producto.costo),
+    moneda_costo: producto.moneda_costo ?? "ARS",
     precio_mayorista: String(producto.precio_mayorista),
     precio_minorista: String(producto.precio_minorista),
+    moneda_venta: producto.moneda_venta ?? "ARS",
   });
   const [guardandoProducto, setGuardandoProducto] = useState(false);
 
@@ -57,8 +59,10 @@ export default function ProductoEditor({
         nombre: form.nombre,
         rodado: form.rodado || null,
         costo: Number(form.costo) || 0,
+        moneda_costo: form.moneda_costo,
         precio_mayorista: Number(form.precio_mayorista) || 0,
         precio_minorista: Number(form.precio_minorista) || 0,
+        moneda_venta: form.moneda_venta,
       })
       .eq("id", producto.id);
     setGuardandoProducto(false);
@@ -162,7 +166,13 @@ export default function ProductoEditor({
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium">Costo</span>
-            <input type="number" step="0.01" className="input no-spinner" value={form.costo} onChange={(e) => update("costo", e.target.value)} />
+            <div className="flex gap-2">
+              <input type="number" step="0.01" className="input no-spinner" value={form.costo} onChange={(e) => update("costo", e.target.value)} />
+              <select className="input w-24" value={form.moneda_costo} onChange={(e) => update("moneda_costo", e.target.value)}>
+                <option value="ARS">ARS</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium">Precio Mayorista</span>
@@ -170,7 +180,13 @@ export default function ProductoEditor({
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium">Precio Minorista</span>
-            <input type="number" step="0.01" className="input no-spinner" value={form.precio_minorista} onChange={(e) => update("precio_minorista", e.target.value)} />
+            <div className="flex gap-2">
+              <input type="number" step="0.01" className="input no-spinner" value={form.precio_minorista} onChange={(e) => update("precio_minorista", e.target.value)} />
+              <select className="input w-24" value={form.moneda_venta} onChange={(e) => update("moneda_venta", e.target.value)}>
+                <option value="ARS">ARS</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
           </label>
         </div>
         <button onClick={guardarProducto} disabled={guardandoProducto} className="btn-primary">
