@@ -28,6 +28,7 @@ export default function NuevaCompraPage() {
   const [items, setItems] = useState<ItemCompra[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
   const [productoResultados, setProductoResultados] = useState<ProductoVariante[]>([]);
+  const [tipoCambio, setTipoCambio] = useState(1);
 
   useEffect(() => {
     supabase
@@ -46,6 +47,12 @@ export default function NuevaCompraPage() {
         const principal = (data ?? []).find((d) => d.tipo === "principal");
         if (principal) setDepositoId(principal.id);
       });
+    supabase
+      .from("tipo_cambio")
+      .select("valor")
+      .limit(1)
+      .single()
+      .then(({ data }) => setTipoCambio(Number(data?.valor) || 1));
   }, []);
 
   useEffect(() => {
@@ -63,6 +70,8 @@ export default function NuevaCompraPage() {
   }, [productoQuery]);
 
   function agregarVariante(v: ProductoVariante) {
+    const costoBase = v.producto?.costo ?? 0;
+    const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambio : costoBase;
     setItems((prev) => [
       ...prev,
       {
@@ -70,7 +79,7 @@ export default function NuevaCompraPage() {
         nombre: v.producto?.nombre ?? "—",
         color: v.color,
         cantidad: 1,
-        costo_unitario: v.producto?.costo ?? 0,
+        costo_unitario: costoEnPesos,
       },
     ]);
     setProductoQuery("");
@@ -181,7 +190,7 @@ export default function NuevaCompraPage() {
                   <span>
                     {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}
                   </span>
-                                    <span className="text-neutral-400">costo: ${formatearMoneda(v.producto?.costo ?? 0)}</span>
+                  <span className="text-neutral-400">costo: ${formatearMoneda(v.producto?.costo ?? 0)}</span>
                 </button>
               ))}
             </div>
@@ -225,7 +234,7 @@ export default function NuevaCompraPage() {
                         onChange={(e) => actualizarItem(idx, "costo_unitario", Number(e.target.value))}
                       />
                     </td>
-                                        <td className="py-2 text-right font-medium">${formatearMoneda(item.cantidad * item.costo_unitario)}</td>
+                    <td className="py-2 text-right font-medium">${formatearMoneda(item.cantidad * item.costo_unitario)}</td>
                     <td className="py-2 text-center">
                       <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
                         ✕
@@ -240,7 +249,7 @@ export default function NuevaCompraPage() {
           <div className="mt-4 flex justify-end border-t border-neutral-100 pt-4">
             <div className="text-right">
               <p className="text-sm text-neutral-500">Total</p>
-                            <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(total)}</p>
+              <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(total)}</p>
             </div>
           </div>
         </div>
