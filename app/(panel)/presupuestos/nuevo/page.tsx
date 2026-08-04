@@ -106,7 +106,7 @@ export default function NuevoPresupuestoPage() {
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== idx || !item.variante) return item;
-        const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.variante, tipo);
+                const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.variante, tipo, tipoCambio);
         return recalcularSubtotal({ ...item, tipoPrecio: tipo, precio_unitario: nuevoPrecio });
       })
     );
