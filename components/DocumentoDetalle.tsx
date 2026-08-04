@@ -35,11 +35,13 @@ const RUTA_LISTADO: Record<string, string> = {
   nota_credito: "/devoluciones",
 };
 
-function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio): number {
+function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio, tipoCambio: number): number {
   const p = v.producto!;
-  if (tipo === "mayorista") return p.precio_mayorista;
-  if (tipo === "promocion") return p.precio_promocion ?? p.precio_minorista;
-  return p.precio_minorista;
+  let precio: number;
+  if (tipo === "mayorista") precio = p.precio_mayorista;
+  else if (tipo === "promocion") precio = p.precio_promocion ?? p.precio_minorista;
+  else precio = p.precio_minorista;
+  return p.moneda_venta === "USD" ? precio * tipoCambio : precio;
 }
 
 export default function DocumentoDetalle({ documento, itemsIniciales }: { documento: any; itemsIniciales: any[] }) {
