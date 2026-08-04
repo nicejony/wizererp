@@ -108,15 +108,17 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function agregarVariante(v: ProductoVariante) {
-        const precio = precioSegunTipo(v, "minorista", tipoCambio);
+    function agregarVariante(v: ProductoVariante) {
+    const precio = precioSegunTipo(v, "minorista", tipoCambio);
+    const costoBase = v.producto?.costo ?? 0;
+    const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambio : costoBase;
     setItems((prev) => [
       ...prev,
       {
         variante_id: v.id,
         cantidad: 1,
         precio_unitario: precio,
-        costo_unitario: v.producto?.costo ?? 0,
+        costo_unitario: costoEnPesos,
         descuento_porcentaje: 0,
         subtotal: precio,
         nombre: v.producto?.nombre ?? "—",
