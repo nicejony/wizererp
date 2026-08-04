@@ -15,8 +15,11 @@ export default async function ProductosPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Productos</h1>
-        <div className="flex gap-2">
+                <div className="flex gap-2">
           <BotonImprimir />
+          <Link href="/productos/importar" className="btn-secondary no-print">
+            📤 Importar Excel
+          </Link>
           <Link href="/productos/nuevo" className="btn-primary no-print">
             + Nuevo producto
           </Link>
