@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import DocumentoDetalle from "@/components/DocumentoDetalle";
+import RemitoDetalle from "@/components/RemitoDetalle";
 
 export default async function DocumentoDetallePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -15,5 +16,10 @@ export default async function DocumentoDetallePage({ params }: { params: { id: s
 
   if (!documento) notFound();
 
+  if (documento.tipo === "remito") {
+    return <RemitoDetalle documento={documento} itemsIniciales={items ?? []} />;
+  }
+
   return <DocumentoDetalle documento={documento} itemsIniciales={items ?? []} />;
 }
+
