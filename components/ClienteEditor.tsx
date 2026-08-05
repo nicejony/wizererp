@@ -101,8 +101,8 @@ export default function ClienteEditor({ cliente }: { cliente: any }) {
           <span className="mb-1 block text-sm font-medium">Código postal</span>
           <input className="input" value={form.codigo_postal} onChange={(e) => update("codigo_postal", e.target.value)} />
         </label>
-        <label>
-                  <label>
+        
+          <label>
           <span className="mb-1 block text-sm font-medium">Expreso habitual</span>
           <input
             className="input"
