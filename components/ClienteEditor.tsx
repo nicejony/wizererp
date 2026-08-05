@@ -43,8 +43,9 @@ export default function ClienteEditor({ cliente }: { cliente: any }) {
         direccion: form.direccion || null,
         localidad: form.localidad || null,
         provincia: form.provincia || null,
-        codigo_postal: form.codigo_postal || null,
+                codigo_postal: form.codigo_postal || null,
         nombre_expreso: form.nombre_expreso || null,
+        condicion_iva: form.condicion_iva,
         observaciones: form.observaciones || null,
       })
       .eq("id", cliente.id);
