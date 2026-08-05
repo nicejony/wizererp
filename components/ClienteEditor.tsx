@@ -19,8 +19,9 @@ export default function ClienteEditor({ cliente }: { cliente: any }) {
     direccion: cliente.direccion ?? "",
     localidad: cliente.localidad ?? "",
     provincia: cliente.provincia ?? "",
-    codigo_postal: cliente.codigo_postal ?? "",
+        codigo_postal: cliente.codigo_postal ?? "",
     nombre_expreso: cliente.nombre_expreso ?? "",
+    condicion_iva: cliente.condicion_iva ?? "Consumidor Final",
     observaciones: cliente.observaciones ?? "",
   });
 
