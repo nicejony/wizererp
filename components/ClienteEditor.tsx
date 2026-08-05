@@ -108,8 +108,7 @@ export default function ClienteEditor({ cliente }: { cliente: any }) {
             className="input"
             placeholder="Ej: Andreani, Vía Cargo..."
             value={form.nombre_expreso}
-            onChange={(e) => update("nombre_expreso", e.target.value)}
-          />
+            onChange={(e) => update("nombre_expreso", e.target.value)}/>
         </label>
         <label>
           <span className="mb-1 block text-sm font-medium">Condición de IVA</span>
