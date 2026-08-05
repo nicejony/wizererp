@@ -102,6 +102,7 @@ export default function ClienteEditor({ cliente }: { cliente: any }) {
           <input className="input" value={form.codigo_postal} onChange={(e) => update("codigo_postal", e.target.value)} />
         </label>
         <label>
+                  <label>
           <span className="mb-1 block text-sm font-medium">Expreso habitual</span>
           <input
             className="input"
@@ -109,6 +110,15 @@ export default function ClienteEditor({ cliente }: { cliente: any }) {
             value={form.nombre_expreso}
             onChange={(e) => update("nombre_expreso", e.target.value)}
           />
+        </label>
+        <label>
+          <span className="mb-1 block text-sm font-medium">Condición de IVA</span>
+          <select className="input" value={form.condicion_iva} onChange={(e) => update("condicion_iva", e.target.value)}>
+            <option value="Consumidor Final">Consumidor Final</option>
+            <option value="Responsable Inscripto">Responsable Inscripto</option>
+            <option value="Monotributo">Monotributo</option>
+            <option value="Exento">Exento</option>
+          </select>
         </label>
       </div>
 
