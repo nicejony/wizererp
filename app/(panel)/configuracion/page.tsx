@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import ConfiguracionPanel from "@/components/ConfiguracionPanel";
 import BackupManager from "@/components/BackupManager";
 import TipoCambioManager from "@/components/TipoCambioManager";
+import ManualPDF from "@/components/ManualPDF";
 
 export default async function ConfiguracionPage() {
   const supabase = createClient();
@@ -23,6 +24,7 @@ export default async function ConfiguracionPage() {
         marcasIniciales={marcas ?? []}
       />
       <BackupManager />
+      <ManualPDF />
     </div>
   );
 }
