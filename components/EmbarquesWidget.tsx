@@ -18,6 +18,10 @@ export default function EmbarquesWidget({ embarquesIniciales }: { embarquesInici
   const [fecha, setFecha] = useState("");
   const [agregando, setAgregando] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [descEditada, setDescEditada] = useState("");
+  const [fechaEditada, setFechaEditada] = useState("");
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   async function agregar() {
     if (!descripcion.trim() || !fecha) return;
@@ -39,6 +43,29 @@ export default function EmbarquesWidget({ embarquesIniciales }: { embarquesInici
     await supabase.from("embarques").update({ activo: false }).eq("id", id);
     setEmbarques((prev) => prev.filter((e) => e.id !== id));
     router.refresh();
+  }
+
+  function empezarEdicion(e: Embarque) {
+    setEditandoId(e.id);
+    setDescEditada(e.descripcion);
+    setFechaEditada(e.fecha);
+  }
+
+  async function guardarEdicion(id: string) {
+    if (!descEditada.trim() || !fechaEditada) return;
+    setGuardandoEdicion(true);
+    const { error } = await supabase
+      .from("embarques")
+      .update({ descripcion: descEditada.trim(), fecha: fechaEditada })
+      .eq("id", id);
+    setGuardandoEdicion(false);
+    if (error) return alert("Error: " + error.message);
+    setEmbarques((prev) =>
+      prev
+        .map((e) => (e.id === id ? { ...e, descripcion: descEditada.trim(), fecha: fechaEditada } : e))
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    );
+    setEditandoId(null);
   }
 
   function diasRestantes(fechaStr: string) {
@@ -81,6 +108,28 @@ export default function EmbarquesWidget({ embarquesIniciales }: { embarquesInici
       <div className="space-y-2">
         {embarques.map((e) => {
           const dias = diasRestantes(e.fecha);
+
+          if (editandoId === e.id) {
+            return (
+              <div key={e.id} className="flex flex-wrap items-end gap-2 rounded-lg bg-neutral-50 p-3">
+                <label className="flex-1">
+                  <span className="mb-1 block text-xs text-neutral-500">Descripción</span>
+                  <input className="input" value={descEditada} onChange={(ev) => setDescEditada(ev.target.value)} />
+                </label>
+                <label>
+                  <span className="mb-1 block text-xs text-neutral-500">Fecha estimada</span>
+                  <input type="date" className="input" value={fechaEditada} onChange={(ev) => setFechaEditada(ev.target.value)} />
+                </label>
+                <button onClick={() => guardarEdicion(e.id)} disabled={guardandoEdicion} className="btn-primary whitespace-nowrap">
+                  {guardandoEdicion ? "..." : "Guardar"}
+                </button>
+                <button onClick={() => setEditandoId(null)} className="text-xs text-neutral-400 hover:underline">
+                  cancelar
+                </button>
+              </div>
+            );
+          }
+
           return (
             <div key={e.id} className="flex items-center justify-between border-b border-neutral-50 pb-2">
               <div>
@@ -95,6 +144,9 @@ export default function EmbarquesWidget({ embarquesIniciales }: { embarquesInici
                 >
                   {dias === 0 ? "Hoy" : dias > 0 ? `Faltan ${dias} días` : `Atrasado ${Math.abs(dias)} días`}
                 </span>
+                <button onClick={() => empezarEdicion(e)} className="text-xs text-neutral-400 hover:text-violet-600">
+                  editar
+                </button>
                 <button onClick={() => marcarLlegado(e.id)} className="text-xs text-neutral-400 hover:text-green-600">
                   ✓ llegó
                 </button>
@@ -107,3 +159,4 @@ export default function EmbarquesWidget({ embarquesIniciales }: { embarquesInici
     </div>
   );
 }
+
