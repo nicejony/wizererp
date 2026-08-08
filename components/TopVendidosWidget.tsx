@@ -9,7 +9,7 @@ interface ItemTop {
   monto: number;
 }
 
-export default function TopVendidosWidget({ datos }: { datos: ItemTop[] }) {
+export default function TopVendidosWidget({ datos, titulo }: { datos: ItemTop[]; titulo?: string }) {
   const [criterio, setCriterio] = useState<"cantidad" | "monto">("cantidad");
 
   const top10 = useMemo(() => {
@@ -19,7 +19,7 @@ export default function TopVendidosWidget({ datos }: { datos: ItemTop[] }) {
   return (
     <div className="card">
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm font-medium text-neutral-500">Top 10 más vendidos (últimos 90 días)</p>
+        <p className="text-sm font-medium text-neutral-500">{titulo ?? "Top 10 más vendidos (últimos 90 días)"}</p>
         <div className="flex gap-1 rounded-lg bg-neutral-100 p-1 text-xs">
           <button
             onClick={() => setCriterio("cantidad")}
@@ -53,3 +53,4 @@ export default function TopVendidosWidget({ datos }: { datos: ItemTop[] }) {
     </div>
   );
 }
+
