@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatearMoneda } from "@/lib/format";
-import ReportesCharts from "@/components/ReportesCharts";
+import TopVendidosWidget from "@/components/TopVendidosWidget";
 
 function hoyISO() {
   return new Date().toISOString().slice(0, 10);
@@ -27,7 +27,7 @@ export default function ReportesPanel() {
   const [unidadesVendidas, setUnidadesVendidas] = useState(0);
   const [valorStock, setValorStock] = useState(0);
   const [ventasPorMes, setVentasPorMes] = useState<{ mes: string; ventas: number; margen: number }[]>([]);
-  const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number }[]>([]);
+  const [topProductos, setTopProductos] = useState<{ nombre: string; cantidad: number; monto: number }[]>([]);
   const [stockPorArticulo, setStockPorArticulo] = useState<
     { nombre: string; color: string | null; stock: number; costoUnitarioArs: number; valorTotal: number }[]
   >([]);
@@ -63,7 +63,7 @@ export default function ReportesPanel() {
     for (const p of productosData ?? []) productoPorId[p.id] = p;
 
     const mesesMap: Record<string, { ventas: number; margen: number; orden: string }> = {};
-    const productoTotales: Record<string, number> = {};
+    const productoTotales: Record<string, { cantidad: number; monto: number }> = {};
     const productosVendidosSet = new Set<string>();
 
     let vTotal = 0;
@@ -86,7 +86,9 @@ export default function ReportesPanel() {
       unidades += Number(item.cantidad);
 
       const nombre = item.producto_variantes?.productos?.nombre ?? "—";
-      productoTotales[nombre] = (productoTotales[nombre] ?? 0) + Number(item.cantidad);
+      if (!productoTotales[nombre]) productoTotales[nombre] = { cantidad: 0, monto: 0 };
+      productoTotales[nombre].cantidad += Number(item.cantidad);
+      productoTotales[nombre].monto += subtotal;
       productosVendidosSet.add(nombre);
     }
 
@@ -95,9 +97,9 @@ export default function ReportesPanel() {
       .map(([mes, v]) => ({ mes, ventas: v.ventas, margen: v.margen }));
 
     const topArr = Object.entries(productoTotales)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1].cantidad - a[1].cantidad)
       .slice(0, 10)
-      .map(([nombre, cantidad]) => ({ nombre, cantidad }));
+      .map(([nombre, v]) => ({ nombre, cantidad: v.cantidad, monto: v.monto }));
 
     let valorTotalStock = 0;
     const filasStock = (stockResumen ?? [])
@@ -201,13 +203,38 @@ export default function ReportesPanel() {
             </div>
           </div>
 
-          <ReportesCharts
-            ventasPorMes={ventasPorMes}
-            topProductos={topProductos}
-            ventasTotal={ventasTotal}
-            margenTotal={margenTotal}
-            valorStock={valorStock}
-          />
+          <div className="card">
+            <p className="mb-4 text-sm font-medium text-neutral-500">Ventas y margen por mes</p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[400px] text-sm">
+                <thead className="border-b border-neutral-100 text-left text-neutral-500">
+                  <tr>
+                    <th className="py-2">Mes</th>
+                    <th className="py-2 text-right">Ventas</th>
+                    <th className="py-2 text-right">Margen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ventasPorMes.map((m) => (
+                    <tr key={m.mes} className="border-b border-neutral-50">
+                      <td className="py-2 font-medium capitalize">{m.mes}</td>
+                      <td className="py-2 text-right">${formatearMoneda(m.ventas)}</td>
+                      <td className="py-2 text-right text-green-600">${formatearMoneda(m.margen)}</td>
+                    </tr>
+                  ))}
+                  {ventasPorMes.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-6 text-center text-neutral-400">
+                        No hay ventas en este período.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <TopVendidosWidget datos={topProductos} titulo="Top 10 más vendidos en el período" />
 
           <div className="card">
             <p className="mb-4 text-sm font-medium text-neutral-500">Stock valorizado por artículo</p>
