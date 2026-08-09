@@ -92,7 +92,9 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">Dashboard</h1>
+            <h1 className="mb-6 flex items-center gap-2 text-2xl font-semibold">
+        <LayoutDashboard className="text-violet-600" size={22} /> Dashboard
+      </h1>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:w-80">
         <div className="card py-3">
