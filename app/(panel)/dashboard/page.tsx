@@ -3,6 +3,7 @@ import Link from "next/link";
 import { formatearMoneda } from "@/lib/format";
 import EmbarquesWidget from "@/components/EmbarquesWidget";
 import TopVendidosWidget from "@/components/TopVendidosWidget";
+import { LayoutDashboard } from "lucide-react";
 
 export default async function DashboardPage() {
   const supabase = createClient();
