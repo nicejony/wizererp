@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import AdministracionPanel from "@/components/AdministracionPanel";
+import { Landmark } from "lucide-react";
+
 
 export default async function AdministracionPage() {
   const supabase = createClient();
