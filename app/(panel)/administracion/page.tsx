@@ -22,7 +22,9 @@ export default async function AdministracionPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">Administración</h1>
+            <h1 className="mb-6 flex items-center gap-2 text-2xl font-semibold">
+        <Landmark className="text-violet-600" size={22} /> Administración
+      </h1>
       <AdministracionPanel cajasConSaldo={cajasConSaldo} movimientosIniciales={movimientos ?? []} />
     </div>
   );
