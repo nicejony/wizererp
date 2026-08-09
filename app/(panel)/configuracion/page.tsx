@@ -17,7 +17,9 @@ export default async function ConfiguracionPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold">Configuración</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold">
+        <Settings className="text-violet-600" size={22} /> Configuración
+      </h1>
       <TipoCambioManager tipoCambio={tipoCambio} />
       <ConfiguracionPanel
         usuariosIniciales={usuarios ?? []}
