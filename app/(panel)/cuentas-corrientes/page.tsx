@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import CuentasCorrientesPanel from "@/components/CuentasCorrientesPanel";
 import BotonImprimir from "@/components/BotonImprimir";
+import { Wallet } from "lucide-react";
 
 export default async function CuentasCorrientesPage() {
   const supabase = createClient();
