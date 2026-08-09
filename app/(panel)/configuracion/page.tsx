@@ -3,6 +3,7 @@ import ConfiguracionPanel from "@/components/ConfiguracionPanel";
 import BackupManager from "@/components/BackupManager";
 import TipoCambioManager from "@/components/TipoCambioManager";
 import ManualPDF from "@/components/ManualPDF";
+import { Settings } from "lucide-react";
 
 export default async function ConfiguracionPage() {
   const supabase = createClient();
