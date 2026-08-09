@@ -29,7 +29,9 @@ export default async function CuentasCorrientesPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Cuentas Corrientes</h1>
+                <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <Wallet className="text-violet-600" size={22} /> Cuentas Corrientes
+        </h1>
         <BotonImprimir />
       </div>
       <CuentasCorrientesPanel
