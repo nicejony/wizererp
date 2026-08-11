@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 import BotonImprimir from "@/components/BotonImprimir";
 import { formatearMoneda } from "@/lib/format";
+import { Truck } from "lucide-react";
 
 export default async function RemitosPage() {
   const supabase = createClient();
@@ -14,7 +15,9 @@ export default async function RemitosPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Remitos</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <Truck className="text-violet-600" size={22} /> Remitos
+        </h1>
         <BotonImprimir />
       </div>
       <p className="mb-4 text-sm text-neutral-500 no-print">
@@ -48,7 +51,7 @@ export default async function RemitosPage() {
                     {d.estado}
                   </span>
                 </td>
-                                <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
+                <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
                 <td className="px-4 py-3 text-right no-print">
                   <DocumentoAcciones documentoId={d.id} tipo="remito" estado={d.estado} />
                 </td>
@@ -67,3 +70,4 @@ export default async function RemitosPage() {
     </div>
   );
 }
+
