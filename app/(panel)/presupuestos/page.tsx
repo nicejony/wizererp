@@ -3,6 +3,7 @@ import Link from "next/link";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 import BotonImprimir from "@/components/BotonImprimir";
 import { formatearMoneda } from "@/lib/format";
+import { FileText } from "lucide-react";
 
 export default async function PresupuestosPage() {
   const supabase = createClient();
@@ -15,7 +16,9 @@ export default async function PresupuestosPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Presupuestos</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <FileText className="text-violet-600" size={22} /> Presupuestos
+        </h1>
         <div className="flex gap-2">
           <BotonImprimir />
           <Link href="/presupuestos/nuevo" className="btn-primary no-print">
@@ -51,7 +54,7 @@ export default async function PresupuestosPage() {
                     {d.estado}
                   </span>
                 </td>
-                                <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
+                <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
                 <td className="px-4 py-3 text-right no-print">
                   <DocumentoAcciones documentoId={d.id} tipo="presupuesto" estado={d.estado} />
                 </td>
@@ -70,3 +73,4 @@ export default async function PresupuestosPage() {
     </div>
   );
 }
+
