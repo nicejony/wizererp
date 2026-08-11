@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { formatearMoneda } from "@/lib/format";
+import { ShoppingBag } from "lucide-react";
 
 export default async function ComprasPage() {
   const supabase = createClient();
@@ -12,7 +13,9 @@ export default async function ComprasPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Compras</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <ShoppingBag className="text-violet-600" size={22} /> Compras
+        </h1>
         <Link href="/compras/nuevo" className="btn-primary">
           + Nueva compra
         </Link>
@@ -34,7 +37,7 @@ export default async function ComprasPage() {
                 <td className="px-4 py-3 font-mono text-xs">#{c.numero}</td>
                 <td className="px-4 py-3">{c.fecha}</td>
                 <td className="px-4 py-3 font-medium">{c.proveedores?.nombre ?? "—"}</td>
-                                <td className="px-4 py-3 text-right">${formatearMoneda(c.total)}</td>
+                <td className="px-4 py-3 text-right">${formatearMoneda(c.total)}</td>
               </tr>
             ))}
             {(!compras || compras.length === 0) && (
@@ -50,3 +53,4 @@ export default async function ComprasPage() {
     </div>
   );
 }
+
