@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import BotonImprimir from "@/components/BotonImprimir";
 import { formatearMoneda } from "@/lib/format";
+import { Package } from "lucide-react";
 
 export default async function ProductosPage() {
   const supabase = createClient();
@@ -14,8 +15,10 @@ export default async function ProductosPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Productos</h1>
-                <div className="flex gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <Package className="text-violet-600" size={22} /> Productos
+        </h1>
+        <div className="flex gap-2">
           <BotonImprimir />
           <Link href="/productos/importar" className="btn-secondary no-print">
             📤 Importar Excel
@@ -81,3 +84,4 @@ export default async function ProductosPage() {
     </div>
   );
 }
+
