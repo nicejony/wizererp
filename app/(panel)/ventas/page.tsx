@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import BotonImprimir from "@/components/BotonImprimir";
 import { formatearMoneda } from "@/lib/format";
-
+import { ShoppingCart } from "lucide-react";
 
 export default async function VentasPage() {
   const supabase = createClient();
@@ -17,18 +17,20 @@ export default async function VentasPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Ventas</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <ShoppingCart className="text-violet-600" size={22} /> Ventas
+        </h1>
         <BotonImprimir />
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="card">
           <p className="text-sm text-neutral-500">Total vendido</p>
-                    <p className="mt-1 text-2xl font-semibold">${formatearMoneda(totalVentas)}</p>
+          <p className="mt-1 text-2xl font-semibold">${formatearMoneda(totalVentas)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Margen total</p>
-                    <p className="mt-1 text-2xl font-semibold text-green-700">${formatearMoneda(totalMargen)}</p>
+          <p className="mt-1 text-2xl font-semibold text-green-700">${formatearMoneda(totalMargen)}</p>
         </div>
       </div>
 
@@ -55,7 +57,7 @@ export default async function VentasPage() {
                   </td>
                   <td className="px-4 py-3">{d.fecha}</td>
                   <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
-                                    <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
+                  <td className="px-4 py-3 text-right font-medium">${formatearMoneda(d.total)}</td>
                   <td className="px-4 py-3 text-right text-green-700">${formatearMoneda(margen)}</td>
                 </tr>
               );
@@ -73,3 +75,4 @@ export default async function VentasPage() {
     </div>
   );
 }
+
