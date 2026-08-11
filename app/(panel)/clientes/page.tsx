@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { formatearMoneda } from "@/lib/format";
+import { Users } from "lucide-react";
 
 export default async function ClientesPage() {
   const supabase = createClient();
@@ -13,7 +14,9 @@ export default async function ClientesPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Clientes</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <Users className="text-violet-600" size={22} /> Clientes
+        </h1>
         <Link href="/clientes/nuevo" className="btn-primary">
           + Nuevo cliente
         </Link>
@@ -33,7 +36,7 @@ export default async function ClientesPage() {
           <tbody>
             {clientes?.map((c) => (
               <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
-                                <td className="px-4 py-3 font-medium">
+                <td className="px-4 py-3 font-medium">
                   <Link href={`/clientes/${c.id}`} className="text-violet-700 hover:underline">
                     {c.nombre}
                   </Link>
@@ -41,7 +44,7 @@ export default async function ClientesPage() {
                 <td className="px-4 py-3">{c.empresa ?? "—"}</td>
                 <td className="px-4 py-3">{c.whatsapp ?? c.telefono ?? "—"}</td>
                 <td className="px-4 py-3">{c.localidad ?? "—"}</td>
-                                <td className="px-4 py-3 text-right">${formatearMoneda(c.saldo)}</td>
+                <td className="px-4 py-3 text-right">${formatearMoneda(c.saldo)}</td>
               </tr>
             ))}
             {(!clientes || clientes.length === 0) && (
@@ -55,5 +58,8 @@ export default async function ClientesPage() {
         </table>
       </div>
     </div>
+  );
+}
+
   );
 }
