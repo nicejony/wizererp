@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { Factory } from "lucide-react";
 
 export default async function ProveedoresPage() {
   const supabase = createClient();
@@ -12,7 +13,9 @@ export default async function ProveedoresPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Proveedores</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <Factory className="text-violet-600" size={22} /> Proveedores
+        </h1>
         <Link href="/proveedores/nuevo" className="btn-primary">
           + Nuevo proveedor
         </Link>
@@ -52,3 +55,4 @@ export default async function ProveedoresPage() {
     </div>
   );
 }
+
