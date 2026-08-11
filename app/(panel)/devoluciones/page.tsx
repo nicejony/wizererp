@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import BotonImprimir from "@/components/BotonImprimir";
 import { formatearMoneda } from "@/lib/format";
+import { RotateCcw } from "lucide-react";
 
 export default async function DevolucionesPage() {
   const supabase = createClient();
@@ -13,7 +14,9 @@ export default async function DevolucionesPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Devoluciones</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <RotateCcw className="text-violet-600" size={22} /> Devoluciones
+        </h1>
         <BotonImprimir />
       </div>
       <p className="mb-4 text-sm text-neutral-500 no-print">
@@ -40,7 +43,7 @@ export default async function DevolucionesPage() {
                 </td>
                 <td className="px-4 py-3">{d.fecha}</td>
                 <td className="px-4 py-3 font-medium">{d.clientes?.nombre ?? "—"}</td>
-                                <td className="px-4 py-3 text-right font-medium text-red-600">-${formatearMoneda(d.total)}</td>
+                <td className="px-4 py-3 text-right font-medium text-red-600">-${formatearMoneda(d.total)}</td>
               </tr>
             ))}
             {(!documentos || documentos.length === 0) && (
@@ -56,3 +59,4 @@ export default async function DevolucionesPage() {
     </div>
   );
 }
+
