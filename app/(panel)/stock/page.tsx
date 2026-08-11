@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import DepositosManager from "@/components/DepositosManager";
 import BotonImprimir from "@/components/BotonImprimir";
+import { Boxes } from "lucide-react";
 
 export default async function StockPage() {
   const supabase = createClient();
@@ -20,7 +21,6 @@ export default async function StockPage() {
       ? await supabase.from("variante_stock").select("*").in("variante_id", varianteIds)
       : { data: [] };
 
-  // Armar mapa variante_id -> deposito_id -> stock
   const mapa: Record<string, Record<string, number>> = {};
   for (const row of stockRows ?? []) {
     if (!mapa[row.variante_id]) mapa[row.variante_id] = {};
@@ -29,8 +29,10 @@ export default async function StockPage() {
 
   return (
     <div>
-           <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Stock</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
+          <Boxes className="text-violet-600" size={22} /> Stock
+        </h1>
         <div className="flex gap-2">
           <BotonImprimir />
           <Link href="/stock/inventario" className="btn-secondary no-print">
@@ -94,3 +96,4 @@ export default async function StockPage() {
     </div>
   );
 }
+
