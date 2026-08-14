@@ -5,10 +5,11 @@ import ProductoEditor from "@/components/ProductoEditor";
 export default async function EditarProductoPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
 
-  const [{ data: producto }, { data: variantes }, { data: depositos }] = await Promise.all([
+  const [{ data: producto }, { data: variantes }, { data: depositos }, { data: categorias }] = await Promise.all([
     supabase.from("productos").select("*").eq("id", params.id).single(),
     supabase.from("producto_variantes").select("*").eq("producto_id", params.id).order("created_at"),
     supabase.from("depositos").select("*").eq("activo", true).order("tipo"),
+    supabase.from("categorias").select("*").order("nombre"),
   ]);
 
   if (!producto) notFound();
@@ -27,7 +28,9 @@ export default async function EditarProductoPage({ params }: { params: { id: str
         variantesIniciales={variantes ?? []}
         depositos={depositos ?? []}
         stockPorDepositoInicial={stockPorDeposito ?? []}
+        categorias={categorias ?? []}
       />
     </div>
   );
 }
+
