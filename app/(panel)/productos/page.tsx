@@ -8,7 +8,9 @@ export default async function ProductosPage() {
   const supabase = createClient();
   const { data: variantes } = await supabase
     .from("variante_resumen")
-    .select("*, productos(codigo, nombre, costo, moneda_costo, precio_mayorista, precio_minorista, moneda_venta)")
+    .select(
+      "*, productos(codigo, nombre, costo, moneda_costo, precio_mayorista, precio_minorista, moneda_venta, foto_url, categorias(nombre))"
+    )
     .eq("activo", true)
     .order("producto_id");
 
@@ -33,8 +35,10 @@ export default async function ProductosPage() {
         <table className="w-full text-sm">
           <thead className="border-b border-neutral-100 bg-neutral-50 text-left text-neutral-500">
             <tr>
+              <th className="px-4 py-3">Foto</th>
               <th className="px-4 py-3">Código</th>
               <th className="px-4 py-3">Nombre</th>
+              <th className="px-4 py-3">Rubro</th>
               <th className="px-4 py-3">Color</th>
               <th className="px-4 py-3 text-right">Costo</th>
               <th className="px-4 py-3 text-right">P. Mayorista</th>
@@ -45,12 +49,22 @@ export default async function ProductosPage() {
           <tbody>
             {variantes?.map((v: any) => (
               <tr key={v.variante_id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
+                <td className="px-4 py-3">
+                  {v.productos?.foto_url ? (
+                    <img src={v.productos.foto_url} alt="" className="h-8 w-8 rounded object-cover" />
+                  ) : (
+                    <span title="Sin foto" className="text-neutral-300">
+                      ⚠️
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 font-mono text-xs">{v.productos?.codigo}</td>
                 <td className="px-4 py-3 font-medium">
                   <Link href={`/productos/${v.producto_id}`} className="text-violet-700 hover:underline">
                     {v.productos?.nombre}
                   </Link>
                 </td>
+                <td className="px-4 py-3 text-neutral-500">{v.productos?.categorias?.nombre ?? "—"}</td>
                 <td className="px-4 py-3">{v.color ?? "—"}</td>
                 <td className="px-4 py-3 text-right">
                   ${formatearMoneda(v.productos?.costo ?? 0)}
@@ -73,7 +87,7 @@ export default async function ProductosPage() {
             ))}
             {(!variantes || variantes.length === 0) && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-neutral-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-neutral-400">
                   No hay productos cargados todavía.
                 </td>
               </tr>
@@ -84,4 +98,5 @@ export default async function ProductosPage() {
     </div>
   );
 }
+
 
