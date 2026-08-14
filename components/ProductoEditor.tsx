@@ -3,18 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Producto, ProductoVariante, Deposito, VarianteStock } from "@/lib/types";
+import { Producto, ProductoVariante, Deposito, VarianteStock, Categoria } from "@/lib/types";
+import FotoProductoUploader from "@/components/FotoProductoUploader";
 
 export default function ProductoEditor({
   producto,
   variantesIniciales,
   depositos,
   stockPorDepositoInicial,
+  categorias,
 }: {
   producto: Producto;
   variantesIniciales: ProductoVariante[];
   depositos: Deposito[];
   stockPorDepositoInicial: VarianteStock[];
+  categorias: Categoria[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -27,6 +30,7 @@ export default function ProductoEditor({
     precio_mayorista: String(producto.precio_mayorista),
     precio_minorista: String(producto.precio_minorista),
     moneda_venta: producto.moneda_venta ?? "ARS",
+    categoria_id: producto.categoria_id ?? "",
   });
   const [guardandoProducto, setGuardandoProducto] = useState(false);
 
@@ -34,7 +38,6 @@ export default function ProductoEditor({
   const [nuevoColor, setNuevoColor] = useState({ color: "", stock: "0", stock_minimo: "0" });
   const [agregandoColor, setAgregandoColor] = useState(false);
 
-  // Mapa: variante_id -> deposito_id -> stock
   const construirMapa = (rows: VarianteStock[]) => {
     const mapa: Record<string, Record<string, number>> = {};
     for (const v of variantesIniciales) mapa[v.id] = {};
@@ -63,6 +66,7 @@ export default function ProductoEditor({
         precio_mayorista: Number(form.precio_mayorista) || 0,
         precio_minorista: Number(form.precio_minorista) || 0,
         moneda_venta: form.moneda_venta,
+        categoria_id: form.categoria_id || null,
       })
       .eq("id", producto.id);
     setGuardandoProducto(false);
@@ -148,7 +152,10 @@ export default function ProductoEditor({
 
   return (
     <div className="space-y-4">
-      {/* Datos generales */}
+      <div className="card">
+        <FotoProductoUploader productoId={producto.id} fotoUrlInicial={producto.foto_url} />
+      </div>
+
       <div className="card space-y-4">
         <p className="text-sm font-medium text-neutral-500">Datos generales</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -159,6 +166,17 @@ export default function ProductoEditor({
           <label>
             <span className="mb-1 block text-sm font-medium">Nombre</span>
             <input className="input" value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
+          </label>
+          <label>
+            <span className="mb-1 block text-sm font-medium">Rubro</span>
+            <select className="input" value={form.categoria_id} onChange={(e) => update("categoria_id", e.target.value)}>
+              <option value="">Sin rubro</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium">Rodado</span>
@@ -194,7 +212,6 @@ export default function ProductoEditor({
         </button>
       </div>
 
-      {/* Colores existentes, con stock desglosado por depósito */}
       <div className="card space-y-4">
         <p className="text-sm font-medium text-neutral-500">Colores y stock por depósito</p>
 
@@ -221,7 +238,6 @@ export default function ProductoEditor({
               </button>
             </div>
 
-            {/* Stock por depósito */}
             <div className="flex flex-wrap gap-3 rounded-lg bg-neutral-50 p-3">
               {depositos.map((dep) => (
                 <div key={dep.id} className="flex items-end gap-2">
@@ -243,7 +259,6 @@ export default function ProductoEditor({
           </div>
         ))}
 
-        {/* Agregar nuevo color */}
         <div>
           <p className="mb-2 text-xs font-medium text-neutral-500">Agregar color nuevo</p>
           <div className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-2">
@@ -281,5 +296,8 @@ export default function ProductoEditor({
         </div>
       </div>
     </div>
+  );
+}
+
   );
 }
