@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { subirFotoProducto } from "@/lib/fotosProductos";
 
 interface VarianteForm {
   color: string;
@@ -24,9 +25,20 @@ export default function NuevoProductoPage() {
     precio_mayorista: "",
     precio_minorista: "",
     moneda_venta: "ARS",
+    categoria_id: "",
   });
 
+  const [categorias, setCategorias] = useState<{ id: string; nombre: string }[]>([]);
+  const [foto, setFoto] = useState<File | null>(null);
   const [variantes, setVariantes] = useState<VarianteForm[]>([{ color: "", stock: "0", stock_minimo: "0" }]);
+
+  useEffect(() => {
+    supabase
+      .from("categorias")
+      .select("id, nombre")
+      .order("nombre")
+      .then(({ data }) => setCategorias(data ?? []));
+  }, []);
 
   function update(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -59,6 +71,7 @@ export default function NuevoProductoPage() {
         precio_mayorista: Number(form.precio_mayorista) || 0,
         precio_minorista: Number(form.precio_minorista) || 0,
         moneda_venta: form.moneda_venta,
+        categoria_id: form.categoria_id || null,
       })
       .select()
       .single();
@@ -67,6 +80,11 @@ export default function NuevoProductoPage() {
       setLoading(false);
       alert("Error al guardar producto: " + error?.message);
       return;
+    }
+
+    if (foto) {
+      const fotoUrl = await subirFotoProducto(producto.id, foto);
+      if (fotoUrl) await supabase.from("productos").update({ foto_url: fotoUrl }).eq("id", producto.id);
     }
 
     const variantesPayload = variantes.map((v) => ({
@@ -107,6 +125,16 @@ export default function NuevoProductoPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="card space-y-4">
+          <p className="text-sm font-medium text-neutral-500">Foto principal (opcional, se puede agregar después)</p>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+            className="input"
+          />
+        </div>
+
+        <div className="card space-y-4">
           <p className="text-sm font-medium text-neutral-500">Datos generales (compartidos por todos los colores)</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label>
@@ -116,6 +144,17 @@ export default function NuevoProductoPage() {
             <label>
               <span className="mb-1 block text-sm font-medium">Nombre *</span>
               <input required className="input" value={form.nombre} onChange={(e) => update("nombre", e.target.value)} />
+            </label>
+            <label>
+              <span className="mb-1 block text-sm font-medium">Rubro</span>
+              <select className="input" value={form.categoria_id} onChange={(e) => update("categoria_id", e.target.value)}>
+                <option value="">Sin rubro</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               <span className="mb-1 block text-sm font-medium">Rodado</span>
@@ -186,3 +225,4 @@ export default function NuevoProductoPage() {
     </div>
   );
 }
+
