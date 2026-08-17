@@ -20,8 +20,11 @@ export default async function ProductosPage() {
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <Package className="text-violet-600" size={22} /> Productos
         </h1>
-        <div className="flex gap-2">
+                <div className="flex gap-2">
           <BotonImprimir />
+          <Link href="/productos/listas-precios" className="btn-secondary no-print">
+            📋 Listas de Precios
+          </Link>
           <Link href="/productos/importar" className="btn-secondary no-print">
             📤 Importar Excel
           </Link>
