@@ -67,7 +67,7 @@ export default function ListasPreciosPanel() {
         activo: p.activo,
         categoria_id: p.categoria_id,
         categoriaNombre: p.categorias?.nombre ?? "Sin rubro",
-        colores: [...new Set((p.producto_variantes ?? []).filter((v: any) => v.activo && v.color).map((v: any) => v.color as string))],
+                colores: Array.from(new Set((p.producto_variantes ?? []).filter((v: any) => v.activo && v.color).map((v: any) => v.color as string))) as string[],
       }));
 
       setProductos(mapeados);
