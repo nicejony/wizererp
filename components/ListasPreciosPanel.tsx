@@ -1,0 +1,367 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { formatearMoneda } from "@/lib/format";
+import BotonImprimir from "@/components/BotonImprimir";
+
+interface ProductoLista {
+  id: string;
+  codigo: string;
+  nombre: string;
+  precio_mayorista: number;
+  precio_minorista: number;
+  moneda_venta: string;
+  foto_url: string | null;
+  activo: boolean;
+  categoria_id: string | null;
+  categoriaNombre: string;
+  colores: string[];
+}
+
+type TipoPrecioLista = "mayorista" | "minorista" | "ambos";
+type Presentacion = "lista" | "catalogo";
+type Orden = "rubro_nombre" | "nombre" | "codigo";
+
+export default function ListasPreciosPanel() {
+  const supabase = createClient();
+
+  const [cargando, setCargando] = useState(true);
+  const [productos, setProductos] = useState<ProductoLista[]>([]);
+  const [categorias, setCategorias] = useState<{ id: string; nombre: string }[]>([]);
+
+  const [tipoPrecio, setTipoPrecio] = useState<TipoPrecioLista>("mayorista");
+  const [rubrosSel, setRubrosSel] = useState<Set<string>>(new Set());
+  const [busqueda, setBusqueda] = useState("");
+  const [soloActivos, setSoloActivos] = useState(true);
+
+  const [presentacion, setPresentacion] = useState<Presentacion>("lista");
+  const [mostrarFoto, setMostrarFoto] = useState(true);
+  const [mostrarCodigo, setMostrarCodigo] = useState(true);
+  const [mostrarRubro, setMostrarRubro] = useState(true);
+  const [orden, setOrden] = useState<Orden>("rubro_nombre");
+  const [titulo, setTitulo] = useState("Lista de precios Wizer");
+
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  const [vistaPrevia, setVistaPrevia] = useState(false);
+
+  useEffect(() => {
+    async function cargar() {
+      const [{ data: prods }, { data: cats }] = await Promise.all([
+        supabase
+          .from("productos")
+          .select(
+            "id, codigo, nombre, precio_mayorista, precio_minorista, moneda_venta, foto_url, activo, categoria_id, categorias(nombre), producto_variantes(color, activo)"
+          ),
+        supabase.from("categorias").select("id, nombre").order("nombre"),
+      ]);
+
+      const mapeados: ProductoLista[] = (prods ?? []).map((p: any) => ({
+        id: p.id,
+        codigo: p.codigo,
+        nombre: p.nombre,
+        precio_mayorista: Number(p.precio_mayorista),
+        precio_minorista: Number(p.precio_minorista),
+        moneda_venta: p.moneda_venta,
+        foto_url: p.foto_url,
+        activo: p.activo,
+        categoria_id: p.categoria_id,
+        categoriaNombre: p.categorias?.nombre ?? "Sin rubro",
+        colores: [...new Set((p.producto_variantes ?? []).filter((v: any) => v.activo && v.color).map((v: any) => v.color as string))],
+      }));
+
+      setProductos(mapeados);
+      setCategorias(cats ?? []);
+      setSeleccionados(new Set(mapeados.filter((p) => p.activo).map((p) => p.id)));
+      setCargando(false);
+    }
+    cargar();
+  }, []);
+
+  const resultadosFiltrados = useMemo(() => {
+    return productos
+      .filter((p) => (soloActivos ? p.activo : true))
+      .filter((p) => (rubrosSel.size === 0 ? true : p.categoria_id && rubrosSel.has(p.categoria_id)))
+      .filter((p) => {
+        if (!busqueda.trim()) return true;
+        const q = busqueda.toLowerCase();
+        return p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q);
+      });
+  }, [productos, soloActivos, rubrosSel, busqueda]);
+
+  const productosParaLista = useMemo(() => {
+    const elegidos = productos.filter((p) => seleccionados.has(p.id));
+    const ordenados = [...elegidos].sort((a, b) => {
+      if (orden === "codigo") return a.codigo.localeCompare(b.codigo);
+      if (orden === "nombre") return a.nombre.localeCompare(b.nombre);
+      const rubroCmp = a.categoriaNombre.localeCompare(b.categoriaNombre);
+      return rubroCmp !== 0 ? rubroCmp : a.nombre.localeCompare(b.nombre);
+    });
+    return ordenados;
+  }, [productos, seleccionados, orden]);
+
+  function toggleRubro(id: string) {
+    setRubrosSel((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
+  }
+
+  function toggleSeleccion(id: string) {
+    setSeleccionados((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
+    });
+  }
+
+  function seleccionarTodosResultados() {
+    setSeleccionados((prev) => {
+      const nuevo = new Set(prev);
+      resultadosFiltrados.forEach((p) => nuevo.add(p.id));
+      return nuevo;
+    });
+  }
+
+  function quitarTodosResultados() {
+    setSeleccionados((prev) => {
+      const nuevo = new Set(prev);
+      resultadosFiltrados.forEach((p) => nuevo.delete(p.id));
+      return nuevo;
+    });
+  }
+
+  if (cargando) return <p className="text-sm text-neutral-400">Cargando catálogo...</p>;
+
+  return (
+    <div className="space-y-6">
+      {vistaPrevia ? (
+        <div>
+          <div className="no-print mb-4 flex items-center justify-between">
+            <button onClick={() => setVistaPrevia(false)} className="text-xs text-neutral-400 hover:underline">
+              ← Volver a editar
+            </button>
+            <BotonImprimir />
+          </div>
+
+          <div className="card">
+            <div className="mb-6 border-b border-neutral-100 pb-4">
+              <p className="text-xl font-bold text-violet-700">WIZER BIKES</p>
+              <p className="text-lg font-semibold">{titulo || "Lista de precios Wizer"}</p>
+              <p className="text-xs text-neutral-400">Precios actualizados al: {new Date().toLocaleDateString("es-AR")}</p>
+            </div>
+
+            {presentacion === "lista" ? (
+              <table className="w-full text-sm">
+                <thead className="border-b border-neutral-100 text-left text-neutral-500">
+                  <tr>
+                    {mostrarFoto && <th className="py-2">Foto</th>}
+                    {mostrarCodigo && <th className="py-2">Código</th>}
+                    <th className="py-2">Producto</th>
+                    {mostrarRubro && <th className="py-2">Rubro</th>}
+                    {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && <th className="py-2 text-right">Mayorista</th>}
+                    {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && <th className="py-2 text-right">Minorista</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {productosParaLista.map((p) => (
+                    <tr key={p.id} className="border-b border-neutral-50">
+                      {mostrarFoto && (
+                        <td className="py-2">
+                          {p.foto_url ? (
+                            <img src={p.foto_url} alt="" className="h-10 w-10 rounded object-cover" />
+                          ) : (
+                            <span className="text-neutral-300">—</span>
+                          )}
+                        </td>
+                      )}
+                      {mostrarCodigo && <td className="py-2 font-mono text-xs">{p.codigo}</td>}
+                      <td className="py-2 font-medium">
+                        {p.nombre}
+                        {p.colores.length > 0 && <span className="text-neutral-500"> ({p.colores.join(", ")})</span>}
+                      </td>
+                      {mostrarRubro && <td className="py-2 text-neutral-500">{p.categoriaNombre}</td>}
+                      {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && (
+                        <td className="py-2 text-right">${formatearMoneda(p.precio_mayorista)}</td>
+                      )}
+                      {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && (
+                        <td className="py-2 text-right">${formatearMoneda(p.precio_minorista)}</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {productosParaLista.map((p) => (
+                  <div key={p.id} className="rounded-lg border border-neutral-100 p-3">
+                    {mostrarFoto &&
+                      (p.foto_url ? (
+                        <img src={p.foto_url} alt="" className="mb-2 h-28 w-full rounded object-cover" />
+                      ) : (
+                        <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-neutral-50 text-xs text-neutral-300">
+                          Sin foto
+                        </div>
+                      ))}
+                    <p className="text-sm font-medium">{p.nombre}</p>
+                    {p.colores.length > 0 && <p className="text-xs text-neutral-500">{p.colores.join(", ")}</p>}
+                    {mostrarCodigo && <p className="font-mono text-xs text-neutral-400">{p.codigo}</p>}
+                    {mostrarRubro && <p className="text-xs text-neutral-400">{p.categoriaNombre}</p>}
+                    <div className="mt-1 text-sm font-semibold text-violet-700">
+                      {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && <p>May: ${formatearMoneda(p.precio_mayorista)}</p>}
+                      {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && <p>Min: ${formatearMoneda(p.precio_minorista)}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {productosParaLista.length === 0 && (
+              <p className="py-8 text-center text-neutral-400">No hay productos seleccionados.</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="card">
+            <p className="mb-3 text-sm font-medium text-neutral-500">Tipo de precio</p>
+            <div className="flex gap-4 text-sm">
+              {(["mayorista", "minorista", "ambos"] as TipoPrecioLista[]).map((t) => (
+                <label key={t} className="flex items-center gap-2">
+                  <input type="radio" checked={tipoPrecio === t} onChange={() => setTipoPrecio(t)} />
+                  <span className="capitalize">{t}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <p className="mb-3 text-sm font-medium text-neutral-500">Rubros</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setRubrosSel(new Set())}
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  rubrosSel.size === 0 ? "bg-violet-600 text-white" : "bg-neutral-100 text-neutral-600"
+                }`}
+              >
+                Todos
+              </button>
+              {categorias.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => toggleRubro(c.id)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                    rubrosSel.has(c.id) ? "bg-violet-600 text-white" : "bg-neutral-100 text-neutral-600"
+                  }`}
+                >
+                  {c.nombre}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="card space-y-3">
+            <label>
+              <span className="mb-1 block text-sm font-medium">Buscar producto</span>
+              <input
+                className="input"
+                placeholder="Nombre o código..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            </label>
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={soloActivos} onChange={() => setSoloActivos(true)} />
+                Solo productos activos
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={!soloActivos} onChange={() => setSoloActivos(false)} />
+                Todos
+              </label>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-medium text-neutral-500">
+                Productos ({resultadosFiltrados.length} resultados, {seleccionados.size} seleccionados en total)
+              </p>
+              <div className="flex gap-3">
+                <button onClick={seleccionarTodosResultados} className="text-xs font-medium text-violet-600 hover:underline">
+                  seleccionar todos
+                </button>
+                <button onClick={quitarTodosResultados} className="text-xs text-neutral-400 hover:underline">
+                  quitar todos
+                </button>
+              </div>
+            </div>
+            <div className="max-h-72 space-y-1 overflow-y-auto">
+              {resultadosFiltrados.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-neutral-50">
+                  <input type="checkbox" checked={seleccionados.has(p.id)} onChange={() => toggleSeleccion(p.id)} />
+                  <span className="flex-1">
+                    {p.nombre} {p.colores.length > 0 && <span className="text-neutral-400">({p.colores.join(", ")})</span>}
+                  </span>
+                  <span className="font-mono text-xs text-neutral-400">{p.codigo}</span>
+                </label>
+              ))}
+              {resultadosFiltrados.length === 0 && <p className="py-4 text-center text-sm text-neutral-400">Sin resultados.</p>}
+            </div>
+          </div>
+
+          <div className="card space-y-3">
+            <p className="text-sm font-medium text-neutral-500">Presentación</p>
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={presentacion === "lista"} onChange={() => setPresentacion("lista")} />
+                Lista de precios (compacta)
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={presentacion === "catalogo"} onChange={() => setPresentacion("catalogo")} />
+                Catálogo comercial (con fotos)
+              </label>
+            </div>
+
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={mostrarFoto} onChange={(e) => setMostrarFoto(e.target.checked)} />
+                Mostrar foto
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={mostrarCodigo} onChange={(e) => setMostrarCodigo(e.target.checked)} />
+                Mostrar código
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={mostrarRubro} onChange={(e) => setMostrarRubro(e.target.checked)} />
+                Mostrar rubro
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label>
+                <span className="mb-1 block text-xs text-neutral-500">Ordenar por</span>
+                <select className="input" value={orden} onChange={(e) => setOrden(e.target.value as Orden)}>
+                  <option value="rubro_nombre">Rubro + Nombre</option>
+                  <option value="nombre">Nombre</option>
+                  <option value="codigo">Código</option>
+                </select>
+              </label>
+              <label>
+                <span className="mb-1 block text-xs text-neutral-500">Título</span>
+                <input className="input" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Lista de precios Wizer" />
+              </label>
+            </div>
+          </div>
+
+          <button onClick={() => setVistaPrevia(true)} disabled={seleccionados.size === 0} className="btn-primary">
+            Vista previa ({seleccionados.size} productos)
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
