@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatearMoneda } from "@/lib/format";
 import BotonImprimir from "@/components/BotonImprimir";
+import jsPDF from "jspdf";
 
 interface ProductoLista {
   id: string;
@@ -44,6 +45,7 @@ export default function ListasPreciosPanel() {
 
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [vistaPrevia, setVistaPrevia] = useState(false);
+  const [generandoPDF, setGenerandoPDF] = useState(false);
 
   useEffect(() => {
     async function cargar() {
@@ -67,7 +69,7 @@ export default function ListasPreciosPanel() {
         activo: p.activo,
         categoria_id: p.categoria_id,
         categoriaNombre: p.categorias?.nombre ?? "Sin rubro",
-                colores: Array.from(new Set((p.producto_variantes ?? []).filter((v: any) => v.activo && v.color).map((v: any) => v.color as string))) as string[],
+        colores: Array.from(new Set((p.producto_variantes ?? []).filter((v: any) => v.activo && v.color).map((v: any) => v.color as string))) as string[],
       }));
 
       setProductos(mapeados);
@@ -134,6 +136,199 @@ export default function ListasPreciosPanel() {
     });
   }
 
+  async function imagenABase64(url: string): Promise<string | null> {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      return await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  async function construirPDF(): Promise<jsPDF> {
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const margen = 15;
+    const anchoUtil = 210 - margen * 2;
+    let y = 20;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(124, 58, 237);
+    doc.text("WIZER BIKES", margen, y);
+    y += 8;
+    doc.setFontSize(13);
+    doc.setTextColor(30, 30, 30);
+    doc.text(titulo || "Lista de precios Wizer", margen, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Precios actualizados al: ${new Date().toLocaleDateString("es-AR")}`, margen, y);
+    y += 10;
+
+    const imagenesCache: Record<string, string | null> = {};
+    if (mostrarFoto) {
+      for (const p of productosParaLista) {
+        if (p.foto_url && !(p.id in imagenesCache)) {
+          imagenesCache[p.id] = await imagenABase64(p.foto_url);
+        }
+      }
+    }
+
+    if (presentacion === "lista") {
+      const colFoto = margen;
+      const colCodigo = margen + (mostrarFoto ? 16 : 0);
+      const colNombre = colCodigo + (mostrarCodigo ? 24 : 0);
+      const colPrecioX = margen + anchoUtil;
+
+      function encabezado() {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(90, 90, 90);
+        if (mostrarCodigo) doc.text("Código", colCodigo, y);
+        doc.text("Producto", colNombre, y);
+        const labelPrecio = tipoPrecio === "ambos" ? "May. / Min." : tipoPrecio === "mayorista" ? "Mayorista" : "Minorista";
+        doc.text(labelPrecio, colPrecioX, y, { align: "right" });
+        y += 2;
+        doc.setDrawColor(220, 220, 220);
+        doc.line(margen, y, margen + anchoUtil, y);
+        y += 5;
+      }
+      encabezado();
+
+      for (const p of productosParaLista) {
+        const alturaFila = mostrarFoto ? 14 : 7;
+        if (y + alturaFila > 280) {
+          doc.addPage();
+          y = 20;
+          encabezado();
+        }
+
+        if (mostrarFoto) {
+          const img = imagenesCache[p.id];
+          if (img) {
+            try {
+              doc.addImage(img, "JPEG", colFoto, y - 4, 12, 12);
+            } catch {}
+          }
+        }
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(40, 40, 40);
+        if (mostrarCodigo) doc.text(p.codigo, colCodigo, y);
+
+        const nombreTexto =
+          p.nombre + (p.colores.length ? ` (${p.colores.join(", ")})` : "") + (mostrarRubro ? ` — ${p.categoriaNombre}` : "");
+        const lineas = doc.splitTextToSize(nombreTexto, colPrecioX - colNombre - 25);
+        doc.text(lineas, colNombre, y);
+
+        let precioTexto = "";
+        if (tipoPrecio === "mayorista") precioTexto = `$${formatearMoneda(p.precio_mayorista)}`;
+        else if (tipoPrecio === "minorista") precioTexto = `$${formatearMoneda(p.precio_minorista)}`;
+        else precioTexto = `$${formatearMoneda(p.precio_mayorista)} / $${formatearMoneda(p.precio_minorista)}`;
+        doc.text(precioTexto, colPrecioX, y, { align: "right" });
+
+        y += alturaFila;
+      }
+    } else {
+      const colAncho = anchoUtil / 2 - 4;
+      let x = margen;
+      let colIdx = 0;
+      let filaAlturaMax = 0;
+
+      for (const p of productosParaLista) {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+          x = margen;
+          colIdx = 0;
+        }
+        const cardY = y;
+        if (mostrarFoto) {
+          const img = imagenesCache[p.id];
+          if (img) {
+            try {
+              doc.addImage(img, "JPEG", x, cardY, colAncho, colAncho * 0.75);
+            } catch {}
+          } else {
+            doc.setDrawColor(230, 230, 230);
+            doc.rect(x, cardY, colAncho, colAncho * 0.75);
+          }
+        }
+        let textoY = cardY + (mostrarFoto ? colAncho * 0.75 + 5 : 5);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(30, 30, 30);
+        doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
+        textoY += 5;
+        if (p.colores.length) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(120, 120, 120);
+          doc.text(p.colores.join(", "), x, textoY);
+          textoY += 4;
+        }
+        if (mostrarCodigo) {
+          doc.setFontSize(7);
+          doc.text(p.codigo, x, textoY);
+          textoY += 4;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(124, 58, 237);
+        let precioTexto = "";
+        if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
+        else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
+        else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
+        doc.text(precioTexto, x, textoY);
+        textoY += 6;
+
+        filaAlturaMax = Math.max(filaAlturaMax, textoY - cardY);
+
+        colIdx++;
+        if (colIdx >= 2) {
+          colIdx = 0;
+          x = margen;
+          y += filaAlturaMax + 4;
+          filaAlturaMax = 0;
+        } else {
+          x = margen + colAncho + 8;
+        }
+      }
+    }
+
+    return doc;
+  }
+
+  async function descargarPDF() {
+    setGenerandoPDF(true);
+    const doc = await construirPDF();
+    setGenerandoPDF(false);
+    const nombreArchivo = (titulo || "lista-precios-wizer").toLowerCase().replace(/\s+/g, "-");
+    doc.save(`${nombreArchivo}.pdf`);
+  }
+
+  async function compartirPDF() {
+    setGenerandoPDF(true);
+    const doc = await construirPDF();
+    setGenerandoPDF(false);
+    const blob = doc.output("blob");
+    const file = new File([blob], "lista-precios-wizer.pdf", { type: "application/pdf" });
+
+    if ((navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
+      await (navigator as any).share({ files: [file], title: titulo });
+    } else {
+      doc.save("lista-precios-wizer.pdf");
+      alert("Tu navegador no admite compartir directo — se descargó el PDF para que lo compartas manualmente.");
+    }
+  }
+
   if (cargando) return <p className="text-sm text-neutral-400">Cargando catálogo...</p>;
 
   return (
@@ -144,7 +339,15 @@ export default function ListasPreciosPanel() {
             <button onClick={() => setVistaPrevia(false)} className="text-xs text-neutral-400 hover:underline">
               ← Volver a editar
             </button>
-            <BotonImprimir />
+            <div className="flex gap-2">
+              <BotonImprimir />
+              <button onClick={descargarPDF} disabled={generandoPDF} className="btn-secondary">
+                {generandoPDF ? "Generando..." : "⬇️ Generar PDF"}
+              </button>
+              <button onClick={compartirPDF} disabled={generandoPDF} className="btn-primary">
+                {generandoPDF ? "..." : "📤 Compartir"}
+              </button>
+            </div>
           </div>
 
           <div className="card">
@@ -365,3 +568,4 @@ export default function ListasPreciosPanel() {
     </div>
   );
 }
+
