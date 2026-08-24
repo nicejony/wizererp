@@ -46,16 +46,19 @@ export default function ListasPreciosPanel() {
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [vistaPrevia, setVistaPrevia] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [misListas, setMisListas] = useState<{ id: string; nombre: string; configuracion: any }[]>([]);
+  const [guardandoLista, setGuardandoLista] = useState(false);
 
   useEffect(() => {
     async function cargar() {
-      const [{ data: prods }, { data: cats }] = await Promise.all([
+      const [{ data: prods }, { data: cats }, { data: listas }] = await Promise.all([
         supabase
           .from("productos")
           .select(
             "id, codigo, nombre, precio_mayorista, precio_minorista, moneda_venta, foto_url, activo, categoria_id, categorias(nombre), producto_variantes(color, activo)"
           ),
         supabase.from("categorias").select("id, nombre").order("nombre"),
+        supabase.from("listas_guardadas").select("*").order("nombre"),
       ]);
 
       const mapeados: ProductoLista[] = (prods ?? []).map((p: any) => ({
@@ -74,6 +77,7 @@ export default function ListasPreciosPanel() {
 
       setProductos(mapeados);
       setCategorias(cats ?? []);
+      setMisListas(listas ?? []);
       setSeleccionados(new Set(mapeados.filter((p) => p.activo).map((p) => p.id)));
       setCargando(false);
     }
@@ -134,6 +138,70 @@ export default function ListasPreciosPanel() {
       resultadosFiltrados.forEach((p) => nuevo.delete(p.id));
       return nuevo;
     });
+  }
+
+  function construirConfiguracionActual() {
+    return {
+      tipoPrecio,
+      rubrosSel: Array.from(rubrosSel),
+      soloActivos,
+      presentacion,
+      mostrarFoto,
+      mostrarCodigo,
+      mostrarRubro,
+      orden,
+      titulo,
+      seleccionados: Array.from(seleccionados),
+    };
+  }
+
+  function aplicarConfiguracion(config: any) {
+    setTipoPrecio(config.tipoPrecio ?? "mayorista");
+    setRubrosSel(new Set(config.rubrosSel ?? []));
+    setSoloActivos(config.soloActivos ?? true);
+    setPresentacion(config.presentacion ?? "lista");
+    setMostrarFoto(config.mostrarFoto ?? true);
+    setMostrarCodigo(config.mostrarCodigo ?? true);
+    setMostrarRubro(config.mostrarRubro ?? true);
+    setOrden(config.orden ?? "rubro_nombre");
+    setTitulo(config.titulo ?? "Lista de precios Wizer");
+    setSeleccionados(new Set(config.seleccionados ?? []));
+  }
+
+  async function guardarComoNueva() {
+    const nombre = window.prompt("Nombre para esta lista (ej: Lista Mayorista Completa):");
+    if (!nombre || !nombre.trim()) return;
+    setGuardandoLista(true);
+    const { data, error } = await supabase
+      .from("listas_guardadas")
+      .insert({ nombre: nombre.trim(), configuracion: construirConfiguracionActual() })
+      .select()
+      .single();
+    setGuardandoLista(false);
+    if (error || !data) return alert("Error al guardar: " + error?.message);
+    setMisListas((prev) => [...prev, data].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+  }
+
+  function cargarLista(lista: { configuracion: any }) {
+    aplicarConfiguracion(lista.configuracion);
+  }
+
+  async function duplicarLista(lista: { nombre: string; configuracion: any }) {
+    const nombre = window.prompt("Nombre para la copia:", `Copia de ${lista.nombre}`);
+    if (!nombre || !nombre.trim()) return;
+    const { data, error } = await supabase
+      .from("listas_guardadas")
+      .insert({ nombre: nombre.trim(), configuracion: lista.configuracion })
+      .select()
+      .single();
+    if (error || !data) return alert("Error al duplicar: " + error?.message);
+    setMisListas((prev) => [...prev, data].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+  }
+
+  async function eliminarLista(id: string) {
+    if (!confirm("¿Eliminar esta lista guardada? (Los productos no se ven afectados, solo se borra la configuración)")) return;
+    await supabase.from("listas_guardadas").delete().eq("id", id);
+    setMisListas((prev) => prev.filter((l) => l.id !== id));
   }
 
   async function imagenABase64(url: string): Promise<string | null> {
@@ -238,68 +306,71 @@ export default function ListasPreciosPanel() {
       }
     } else {
       const colAncho = anchoUtil / 2 - 4;
-      let x = margen;
-      let colIdx = 0;
-      let filaAlturaMax = 0;
+      const alturaImagen = mostrarFoto ? colAncho * 0.75 : 0;
+      const alturaTextoEstimada = 6 + (mostrarCodigo ? 4 : 0) + 8;
+      const alturaFilaEstimada = alturaImagen + alturaTextoEstimada + 8;
 
-      for (const p of productosParaLista) {
-        if (y > 250) {
+      for (let i = 0; i < productosParaLista.length; i += 2) {
+        if (y + alturaFilaEstimada > 280) {
           doc.addPage();
           y = 20;
-          x = margen;
-          colIdx = 0;
         }
-        const cardY = y;
-        if (mostrarFoto) {
-          const img = imagenesCache[p.id];
-          if (img) {
-            try {
-              doc.addImage(img, "JPEG", x, cardY, colAncho, colAncho * 0.75);
-            } catch {}
-          } else {
-            doc.setDrawColor(230, 230, 230);
-            doc.rect(x, cardY, colAncho, colAncho * 0.75);
+
+        const filaProductos = productosParaLista.slice(i, i + 2);
+        let filaAlturaMax = 0;
+
+        filaProductos.forEach((p, idx) => {
+          const x = margen + idx * (colAncho + 8);
+          const cardY = y;
+
+          if (mostrarFoto) {
+            const img = imagenesCache[p.id];
+            if (img) {
+              try {
+                doc.addImage(img, "JPEG", x, cardY, colAncho, alturaImagen);
+              } catch {}
+            } else {
+              doc.setFillColor(245, 245, 245);
+              doc.rect(x, cardY, colAncho, alturaImagen, "F");
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(7);
+              doc.setTextColor(190, 190, 190);
+              doc.text("Sin foto", x + colAncho / 2, cardY + alturaImagen / 2, { align: "center" });
+            }
           }
-        }
-        let textoY = cardY + (mostrarFoto ? colAncho * 0.75 + 5 : 5);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(30, 30, 30);
-        doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
-        textoY += 5;
-        if (p.colores.length) {
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(8);
-          doc.setTextColor(120, 120, 120);
-          doc.text(p.colores.join(", "), x, textoY);
-          textoY += 4;
-        }
-        if (mostrarCodigo) {
-          doc.setFontSize(7);
-          doc.text(p.codigo, x, textoY);
-          textoY += 4;
-        }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(124, 58, 237);
-        let precioTexto = "";
-        if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
-        else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
-        else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
-        doc.text(precioTexto, x, textoY);
-        textoY += 6;
 
-        filaAlturaMax = Math.max(filaAlturaMax, textoY - cardY);
+          let textoY = cardY + (mostrarFoto ? alturaImagen + 5 : 5);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
+          doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
+          textoY += 5;
+          if (p.colores.length) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            doc.text(p.colores.join(", "), x, textoY);
+            textoY += 4;
+          }
+          if (mostrarCodigo) {
+            doc.setFontSize(7);
+            doc.text(p.codigo, x, textoY);
+            textoY += 4;
+          }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(124, 58, 237);
+          let precioTexto = "";
+          if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
+          else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
+          else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
+          doc.text(precioTexto, x, textoY);
+          textoY += 6;
 
-        colIdx++;
-        if (colIdx >= 2) {
-          colIdx = 0;
-          x = margen;
-          y += filaAlturaMax + 4;
-          filaAlturaMax = 0;
-        } else {
-          x = margen + colAncho + 8;
-        }
+          filaAlturaMax = Math.max(filaAlturaMax, textoY - cardY);
+        });
+
+        y += filaAlturaMax + 4;
       }
     }
 
@@ -429,6 +500,39 @@ export default function ListasPreciosPanel() {
         </div>
       ) : (
         <>
+          <div className="card">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-medium text-neutral-500">Mis listas</p>
+              <button onClick={guardarComoNueva} disabled={guardandoLista} className="text-xs font-medium text-violet-600 hover:underline">
+                {guardandoLista ? "Guardando..." : "💾 Guardar esta configuración"}
+              </button>
+            </div>
+            {misListas.length === 0 ? (
+              <p className="text-sm text-neutral-400">
+                Todavía no guardaste ninguna. Armá los filtros de abajo y tocá "Guardar esta configuración".
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {misListas.map((l) => (
+                  <div key={l.id} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2">
+                    <span className="text-sm font-medium">{l.nombre}</span>
+                    <div className="flex gap-3 text-xs">
+                      <button onClick={() => cargarLista(l)} className="font-medium text-violet-600 hover:underline">
+                        cargar
+                      </button>
+                      <button onClick={() => duplicarLista(l)} className="text-neutral-500 hover:underline">
+                        duplicar
+                      </button>
+                      <button onClick={() => eliminarLista(l.id)} className="text-red-500 hover:underline">
+                        eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="card">
             <p className="mb-3 text-sm font-medium text-neutral-500">Tipo de precio</p>
             <div className="flex gap-4 text-sm">
@@ -568,4 +672,3 @@ export default function ListasPreciosPanel() {
     </div>
   );
 }
-
