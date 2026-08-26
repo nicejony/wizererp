@@ -102,5 +102,5 @@ export default async function StockPage() {
   );
 }
 
-}
+
 
