@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import DepositosManager from "@/components/DepositosManager";
 import BotonImprimir from "@/components/BotonImprimir";
+import StockContador from "@/components/StockContador";
 import { Boxes } from "lucide-react";
 
 export default async function StockPage() {
@@ -46,6 +47,10 @@ export default async function StockPage() {
 
       <div className="no-print">
         <DepositosManager depositos={depositos ?? []} />
+      </div>
+
+      <div className="no-print mb-6">
+        <StockContador />
       </div>
 
       <div className="card overflow-x-auto p-0">
@@ -95,5 +100,7 @@ export default async function StockPage() {
       </div>
     </div>
   );
+}
+
 }
 
