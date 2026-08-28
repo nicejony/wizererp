@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 interface FilaExcel {
   Código: string;
   Nombre: string;
+  Rubro?: string;
   Rodado?: string;
   Costo?: number;
   "Moneda Costo (ARS/USD)"?: string;
@@ -23,6 +24,7 @@ interface FilaExcel {
 interface GrupoProducto {
   codigo: string;
   nombre: string;
+  rubro: string;
   rodado: string;
   costo: number;
   moneda_costo: string;
@@ -46,6 +48,7 @@ export default function ImportarProductosPage() {
       {
         Código: "BMX-001",
         Nombre: "Bicicleta Freestyle Pro",
+        Rubro: "Bicicletas",
         Rodado: "20",
         Costo: 100,
         "Moneda Costo (ARS/USD)": "USD",
@@ -59,6 +62,7 @@ export default function ImportarProductosPage() {
       {
         Código: "BMX-001",
         Nombre: "Bicicleta Freestyle Pro",
+        Rubro: "Bicicletas",
         Rodado: "20",
         Costo: 100,
         "Moneda Costo (ARS/USD)": "USD",
@@ -75,6 +79,7 @@ export default function ImportarProductosPage() {
     hoja["!cols"] = [
       { wch: 12 },
       { wch: 28 },
+      { wch: 14 },
       { wch: 10 },
       { wch: 10 },
       { wch: 20 },
@@ -105,7 +110,7 @@ export default function ImportarProductosPage() {
       const mapa: Record<string, GrupoProducto> = {};
 
       filas.forEach((fila, idx) => {
-        const nFila = idx + 2; // +2 porque la fila 1 es el encabezado
+        const nFila = idx + 2;
         if (!fila["Código"] || !fila["Nombre"]) {
           erroresLocales.push(`Fila ${nFila}: falta Código o Nombre.`);
           return;
@@ -115,6 +120,7 @@ export default function ImportarProductosPage() {
           mapa[codigo] = {
             codigo,
             nombre: String(fila["Nombre"]).trim(),
+            rubro: fila["Rubro"] ? String(fila["Rubro"]).trim() : "",
             rodado: fila["Rodado"] ? String(fila["Rodado"]) : "",
             costo: Number(fila["Costo"]) || 0,
             moneda_costo: (fila["Moneda Costo (ARS/USD)"] || "ARS").toString().toUpperCase() === "USD" ? "USD" : "ARS",
@@ -144,17 +150,42 @@ export default function ImportarProductosPage() {
 
     const { data: depositoPrincipal } = await supabase.from("depositos").select("id").eq("tipo", "principal").single();
 
+    const { data: categoriasExistentes } = await supabase.from("categorias").select("id, nombre");
+    const categoriaPorNombre: Record<string, string> = {};
+    for (const c of categoriasExistentes ?? []) {
+      categoriaPorNombre[c.nombre.trim().toLowerCase()] = c.id;
+    }
+
     let creados = 0;
     let fallidos: string[] = [];
 
     for (const grupo of grupos) {
       setProgreso(`Cargando ${grupo.codigo}...`);
 
+      let categoriaId: string | null = null;
+      if (grupo.rubro) {
+        const clave = grupo.rubro.toLowerCase();
+        if (categoriaPorNombre[clave]) {
+          categoriaId = categoriaPorNombre[clave];
+        } else {
+          const { data: nuevaCategoria, error: errorCategoria } = await supabase
+            .from("categorias")
+            .insert({ nombre: grupo.rubro })
+            .select()
+            .single();
+          if (!errorCategoria && nuevaCategoria) {
+            categoriaId = nuevaCategoria.id;
+            categoriaPorNombre[clave] = nuevaCategoria.id;
+          }
+        }
+      }
+
       const { data: producto, error } = await supabase
         .from("productos")
         .insert({
           codigo: grupo.codigo,
           nombre: grupo.nombre,
+          categoria_id: categoriaId,
           rodado: grupo.rodado || null,
           costo: grupo.costo,
           moneda_costo: grupo.moneda_costo,
@@ -209,7 +240,8 @@ export default function ImportarProductosPage() {
       <div className="card mb-4 space-y-4">
         <p className="text-sm text-neutral-500">
           Cada fila del Excel es un color. Si un producto tiene varios colores, repetí el mismo "Código" en varias
-          filas — el sistema los agrupa solo.
+          filas — el sistema los agrupa solo. La columna "Rubro" es opcional: si escribís un rubro que ya existe lo
+          reutiliza, y si es nuevo lo crea automáticamente.
         </p>
         <button onClick={descargarPlantilla} className="btn-secondary">
           ⬇️ Descargar plantilla de ejemplo
@@ -239,11 +271,12 @@ export default function ImportarProductosPage() {
             total
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-sm">
+            <table className="w-full min-w-[650px] text-sm">
               <thead className="border-b border-neutral-100 text-left text-neutral-500">
                 <tr>
                   <th className="py-2">Código</th>
                   <th className="py-2">Nombre</th>
+                  <th className="py-2">Rubro</th>
                   <th className="py-2">Colores</th>
                   <th className="py-2 text-right">Costo</th>
                   <th className="py-2 text-right">P. Minorista</th>
@@ -254,6 +287,7 @@ export default function ImportarProductosPage() {
                   <tr key={g.codigo} className="border-b border-neutral-50">
                     <td className="py-2 font-mono text-xs">{g.codigo}</td>
                     <td className="py-2 font-medium">{g.nombre}</td>
+                    <td className="py-2 text-neutral-500">{g.rubro || "—"}</td>
                     <td className="py-2 text-neutral-500">
                       {g.colores.map((c) => c.color || "—").join(", ")} ({g.colores.length})
                     </td>
