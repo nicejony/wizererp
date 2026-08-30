@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { Fragment } from "react";
 import BotonImprimir from "@/components/BotonImprimir";
 import { formatearMoneda } from "@/lib/format";
 import { Package } from "lucide-react";
@@ -11,8 +12,26 @@ export default async function ProductosPage() {
     .select(
       "*, productos(codigo, nombre, costo, moneda_costo, precio_mayorista, precio_minorista, moneda_venta, foto_url, categorias(nombre))"
     )
-    .eq("activo", true)
-    .order("producto_id");
+    .eq("activo", true);
+
+  // Agrupar por rubro, ordenar rubros alfabéticamente (y "Sin rubro" siempre al final)
+  const grupos: Record<string, any[]> = {};
+  for (const v of variantes ?? []) {
+    const rubro = v.productos?.categorias?.nombre ?? "Sin rubro";
+    if (!grupos[rubro]) grupos[rubro] = [];
+    grupos[rubro].push(v);
+  }
+  for (const rubro in grupos) {
+    grupos[rubro].sort((a, b) => {
+      const nombreCmp = (a.productos?.nombre ?? "").localeCompare(b.productos?.nombre ?? "");
+      return nombreCmp !== 0 ? nombreCmp : (a.color ?? "").localeCompare(b.color ?? "");
+    });
+  }
+  const rubrosOrdenados = Object.keys(grupos).sort((a, b) => {
+    if (a === "Sin rubro") return 1;
+    if (b === "Sin rubro") return -1;
+    return a.localeCompare(b);
+  });
 
   return (
     <div>
@@ -20,7 +39,7 @@ export default async function ProductosPage() {
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <Package className="text-violet-600" size={22} /> Productos
         </h1>
-                <div className="flex gap-2">
+        <div className="flex gap-2">
           <BotonImprimir />
           <Link href="/productos/listas-precios" className="btn-secondary no-print">
             📋 Listas de Precios
@@ -41,7 +60,6 @@ export default async function ProductosPage() {
               <th className="px-4 py-3">Foto</th>
               <th className="px-4 py-3">Código</th>
               <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Rubro</th>
               <th className="px-4 py-3">Color</th>
               <th className="px-4 py-3 text-right">Costo</th>
               <th className="px-4 py-3 text-right">P. Mayorista</th>
@@ -50,47 +68,55 @@ export default async function ProductosPage() {
             </tr>
           </thead>
           <tbody>
-            {variantes?.map((v: any) => (
-              <tr key={v.variante_id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
-                <td className="px-4 py-3">
-                  {v.productos?.foto_url ? (
-                    <img src={v.productos.foto_url} alt="" className="h-8 w-8 rounded object-cover" />
-                  ) : (
-                    <span title="Sin foto" className="text-neutral-300">
-                      ⚠️
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 font-mono text-xs">{v.productos?.codigo}</td>
-                <td className="px-4 py-3 font-medium">
-                  <Link href={`/productos/${v.producto_id}`} className="text-violet-700 hover:underline">
-                    {v.productos?.nombre}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-neutral-500">{v.productos?.categorias?.nombre ?? "—"}</td>
-                <td className="px-4 py-3">{v.color ?? "—"}</td>
-                <td className="px-4 py-3 text-right">
-                  ${formatearMoneda(v.productos?.costo ?? 0)}
-                  {v.productos?.moneda_costo === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  ${formatearMoneda(v.productos?.precio_mayorista ?? 0)}
-                  {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  ${formatearMoneda(v.productos?.precio_minorista ?? 0)}
-                  {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <span className={v.stock_total <= v.stock_minimo ? "font-semibold text-red-600" : "text-neutral-700"}>
-                    {v.stock_total}
-                  </span>
-                </td>
-              </tr>
+            {rubrosOrdenados.map((rubro) => (
+              <Fragment key={rubro}>
+                <tr className="bg-violet-50">
+                  <td colSpan={8} className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-violet-700">
+                    {rubro} <span className="font-normal normal-case text-violet-400">({grupos[rubro].length})</span>
+                  </td>
+                </tr>
+                {grupos[rubro].map((v: any) => (
+                  <tr key={v.variante_id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
+                    <td className="px-4 py-3">
+                      {v.productos?.foto_url ? (
+                        <img src={v.productos.foto_url} alt="" className="h-8 w-8 rounded object-cover" />
+                      ) : (
+                        <span title="Sin foto" className="text-neutral-300">
+                          ⚠️
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{v.productos?.codigo}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <Link href={`/productos/${v.producto_id}`} className="text-violet-700 hover:underline">
+                        {v.productos?.nombre}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">{v.color ?? "—"}</td>
+                    <td className="px-4 py-3 text-right">
+                      ${formatearMoneda(v.productos?.costo ?? 0)}
+                      {v.productos?.moneda_costo === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      ${formatearMoneda(v.productos?.precio_mayorista ?? 0)}
+                      {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      ${formatearMoneda(v.productos?.precio_minorista ?? 0)}
+                      {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={v.stock_total <= v.stock_minimo ? "font-semibold text-red-600" : "text-neutral-700"}>
+                        {v.stock_total}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
             {(!variantes || variantes.length === 0) && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-neutral-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-neutral-400">
                   No hay productos cargados todavía.
                 </td>
               </tr>
@@ -101,5 +127,6 @@ export default async function ProductosPage() {
     </div>
   );
 }
+
 
 
