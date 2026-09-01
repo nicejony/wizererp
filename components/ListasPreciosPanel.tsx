@@ -352,9 +352,16 @@ export default function ListasPreciosPanel() {
             doc.text(p.colores.join(", "), x, textoY);
             textoY += 4;
           }
-          if (mostrarCodigo) {
+                    if (mostrarCodigo) {
             doc.setFontSize(7);
             doc.text(p.codigo, x, textoY);
+            textoY += 4;
+          }
+          if (mostrarRubro) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(150, 150, 150);
+            doc.text(p.categoriaNombre, x, textoY);
             textoY += 4;
           }
           doc.setFont("helvetica", "bold");
