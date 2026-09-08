@@ -11,7 +11,7 @@ function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio, tipoCambio: numb
   let precio: number;
   if (tipo === "mayorista") precio = p.precio_mayorista;
   else if (tipo === "promocion") precio = p.precio_promocion ?? p.precio_minorista;
-  else precio = p.precio_minorista; // minorista o manual (arranca desde minorista)
+  else precio = p.precio_minorista; // minorista o manual
   return p.moneda_venta === "USD" ? precio * tipoCambio : precio;
 }
 
@@ -27,7 +27,7 @@ export default function NuevoPresupuestoPage() {
   const [productoResultados, setProductoResultados] = useState<ProductoVariante[]>([]);
   const [items, setItems] = useState<(DocumentoItem & { tipoPrecio: TipoPrecio })[]>([]);
 
-    const [observaciones, setObservaciones] = useState("");
+  const [observaciones, setObservaciones] = useState("");
   const [formaPago, setFormaPago] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [tipoCambio, setTipoCambio] = useState(1);
@@ -74,7 +74,7 @@ export default function NuevoPresupuestoPage() {
             : i
         );
       }
-                          const precio = precioSegunTipo(v, "minorista", tipoCambio);
+      const precio = precioSegunTipo(v, "mayorista", tipoCambio);
       const costoBase = v.producto?.costo ?? 0;
       const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambio : costoBase;
       return [
@@ -87,7 +87,7 @@ export default function NuevoPresupuestoPage() {
           costo_unitario: costoEnPesos,
           descuento_porcentaje: 0,
           subtotal: precio,
-          tipoPrecio: "minorista",
+          tipoPrecio: "mayorista",
         },
       ];
     });
@@ -108,7 +108,7 @@ export default function NuevoPresupuestoPage() {
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== idx || !item.variante) return item;
-                const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.variante, tipo, tipoCambio);
+        const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.variante, tipo, tipoCambio);
         return recalcularSubtotal({ ...item, tipoPrecio: tipo, precio_unitario: nuevoPrecio });
       })
     );
@@ -226,7 +226,7 @@ export default function NuevoPresupuestoPage() {
                     {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}{" "}
                     <span className="text-neutral-400">({v.producto?.codigo})</span>
                   </span>
-                                    <span className="font-medium">${formatearMoneda(v.producto?.precio_minorista ?? 0)}</span>
+                  <span className="font-medium">${formatearMoneda(v.producto?.precio_mayorista ?? 0)}</span>
                 </button>
               ))}
             </div>
@@ -235,10 +235,11 @@ export default function NuevoPresupuestoPage() {
       </div>
 
       {/* Items */}
-            <div className="card mb-4 overflow-x-auto p-0">
-        <table className="w-full min-w-[680px] text-sm">
+      <div className="card mb-4 overflow-x-auto p-0">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="border-b border-neutral-100 bg-neutral-50 text-left text-neutral-500">
             <tr>
+              <th className="px-3 py-2">Código</th>
               <th className="px-3 py-2">Producto</th>
               <th className="w-24 px-3 py-2">Cant.</th>
               <th className="w-40 px-3 py-2">Lista de precio</th>
@@ -251,6 +252,7 @@ export default function NuevoPresupuestoPage() {
           <tbody>
             {items.map((item, idx) => (
               <tr key={idx} className="border-b border-neutral-50">
+                <td className="px-3 py-2 font-mono text-xs text-neutral-500">{item.variante?.producto?.codigo}</td>
                 <td className="px-3 py-2 font-medium">
                   {item.variante?.producto?.nombre}
                   {item.variante?.color && <span className="text-neutral-500"> — {item.variante.color}</span>}
@@ -294,7 +296,7 @@ export default function NuevoPresupuestoPage() {
                     onChange={(e) => actualizarItem(idx, "descuento_porcentaje", Number(e.target.value))}
                   />
                 </td>
-                                <td className="px-3 py-2 text-right font-medium">${formatearMoneda(item.subtotal)}</td>
+                <td className="px-3 py-2 text-right font-medium">${formatearMoneda(item.subtotal)}</td>
                 <td className="px-3 py-2 text-center">
                   <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
                     ✕
@@ -304,7 +306,7 @@ export default function NuevoPresupuestoPage() {
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-neutral-400">
+                <td colSpan={8} className="px-3 py-8 text-center text-neutral-400">
                   Buscá y agregá productos arriba.
                 </td>
               </tr>
@@ -334,7 +336,7 @@ export default function NuevoPresupuestoPage() {
         </div>
         <div className="flex flex-col items-start justify-end sm:items-end">
           <span className="text-sm text-neutral-500">Total</span>
-                    <span className="text-3xl font-semibold text-violet-700">${formatearMoneda(total)}</span>
+          <span className="text-3xl font-semibold text-violet-700">${formatearMoneda(total)}</span>
         </div>
       </div>
 
