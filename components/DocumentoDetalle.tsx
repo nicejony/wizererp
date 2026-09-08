@@ -8,7 +8,6 @@ import { ProductoVariante, TipoPrecio, FORMAS_PAGO } from "@/lib/types";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 import { formatearMoneda } from "@/lib/format";
 
-
 interface ItemRow {
   id?: string;
   variante_id: string;
@@ -18,7 +17,10 @@ interface ItemRow {
   descuento_porcentaje: number;
   subtotal: number;
   nombre: string;
+  codigo: string;
   color: string | null;
+  tipoPrecio: TipoPrecio;
+  varianteInfo: any;
 }
 
 const ETIQUETAS: Record<string, string> = {
@@ -35,7 +37,7 @@ const RUTA_LISTADO: Record<string, string> = {
   nota_credito: "/devoluciones",
 };
 
-function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio, tipoCambio: number): number {
+function precioSegunTipo(v: any, tipo: TipoPrecio, tipoCambio: number): number {
   const p = v.producto!;
   let precio: number;
   if (tipo === "mayorista") precio = p.precio_mayorista;
@@ -64,11 +66,18 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
       descuento_porcentaje: Number(i.descuento_porcentaje),
       subtotal: Number(i.subtotal),
       nombre: i.producto_variantes?.productos?.nombre ?? "—",
+      codigo: i.producto_variantes?.productos?.codigo ?? "—",
       color: i.producto_variantes?.color ?? null,
+      tipoPrecio: "manual" as TipoPrecio,
+      varianteInfo: {
+        id: i.variante_id,
+        color: i.producto_variantes?.color ?? null,
+        producto: i.producto_variantes?.productos ?? null,
+      },
     }))
   );
 
-    const [productoQuery, setProductoQuery] = useState("");
+  const [productoQuery, setProductoQuery] = useState("");
   const [productoResultados, setProductoResultados] = useState<ProductoVariante[]>([]);
   const [tipoCambio, setTipoCambio] = useState(1);
 
@@ -104,12 +113,22 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
     setItems((prev) => prev.map((it, i) => (i === idx ? recalc({ ...it, [campo]: valor }) : it)));
   }
 
+  function cambiarTipoPrecio(idx: number, tipo: TipoPrecio) {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== idx || !item.varianteInfo?.producto) return item;
+        const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.varianteInfo, tipo, tipoCambio);
+        return recalc({ ...item, tipoPrecio: tipo, precio_unitario: nuevoPrecio });
+      })
+    );
+  }
+
   function quitarItem(idx: number) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
 
-    function agregarVariante(v: ProductoVariante) {
-    const precio = precioSegunTipo(v, "minorista", tipoCambio);
+  function agregarVariante(v: ProductoVariante) {
+    const precio = precioSegunTipo(v, "mayorista", tipoCambio);
     const costoBase = v.producto?.costo ?? 0;
     const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambio : costoBase;
     setItems((prev) => [
@@ -122,7 +141,10 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
         descuento_porcentaje: 0,
         subtotal: precio,
         nombre: v.producto?.nombre ?? "—",
+        codigo: v.producto?.codigo ?? "—",
         color: v.color,
+        tipoPrecio: "mayorista",
+        varianteInfo: v,
       },
     ]);
     setProductoQuery("");
@@ -184,7 +206,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
           <button onClick={() => window.print()} className="btn-secondary">
             🖨️ Imprimir
           </button>
-                    <DocumentoAcciones documentoId={documento.id} tipo={documento.tipo} estado={documento.estado} clienteId={documento.cliente_id} />
+          <DocumentoAcciones documentoId={documento.id} tipo={documento.tipo} estado={documento.estado} clienteId={documento.cliente_id} />
         </div>
       </div>
 
@@ -244,9 +266,10 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
                     onClick={() => agregarVariante(v)}
                   >
                     <span>
-                      {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}
+                      {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}{" "}
+                      <span className="text-neutral-400">({v.producto?.codigo})</span>
                     </span>
-                                        <span className="font-medium">${formatearMoneda(v.producto?.precio_minorista ?? 0)}</span>
+                    <span className="font-medium">${formatearMoneda(v.producto?.precio_mayorista ?? 0)}</span>
                   </button>
                 ))}
               </div>
@@ -254,77 +277,98 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
           </div>
         )}
 
-        <table className="mb-4 w-full text-sm">
-          <thead className="border-b border-neutral-100 text-left text-neutral-500">
-            <tr>
-              <th className="py-2">Producto</th>
-              <th className="w-20 py-2">Cant.</th>
-              <th className="w-28 py-2">Precio</th>
-              <th className="w-20 py-2">Desc. %</th>
-              <th className="w-28 py-2 text-right">Subtotal</th>
-              {editando && <th className="no-print w-8 py-2"></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, idx) => (
-              <tr key={item.id ?? `nuevo-${idx}`} className="border-b border-neutral-50">
-                <td className="py-2 font-medium">
-                  {item.nombre} {item.color && <span className="text-neutral-500">— {item.color}</span>}
-                </td>
-                <td className="py-2">
-                  {editando ? (
-                    <input
-                      type="number"
-                      className="input no-spinner py-1"
-                      value={item.cantidad}
-                      onChange={(e) => actualizarItem(idx, "cantidad", Number(e.target.value))}
-                    />
-                  ) : (
-                    item.cantidad
-                  )}
-                </td>
-                <td className="py-2">
-                  {editando ? (
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="input no-spinner py-1"
-                      value={item.precio_unitario}
-                      onChange={(e) => actualizarItem(idx, "precio_unitario", Number(e.target.value))}
-                    />
-                  ) : (
-                                        `$${formatearMoneda(item.precio_unitario)}`
-                  )}
-                </td>
-                <td className="py-2">
-                  {editando ? (
-                    <input
-                      type="number"
-                      className="input no-spinner py-1"
-                      value={item.descuento_porcentaje}
-                      onChange={(e) => actualizarItem(idx, "descuento_porcentaje", Number(e.target.value))}
-                    />
-                  ) : (
-                    `${item.descuento_porcentaje}%`
-                  )}
-                </td>
-                                <td className="py-2 text-right font-medium">${formatearMoneda(item.subtotal)}</td>
-                {editando && (
-                  <td className="no-print py-2 text-center">
-                    <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
-                      ✕
-                    </button>
-                  </td>
-                )}
+        <div className="overflow-x-auto">
+          <table className="mb-4 w-full min-w-[600px] text-sm">
+            <thead className="border-b border-neutral-100 text-left text-neutral-500">
+              <tr>
+                <th className="py-2">Código</th>
+                <th className="py-2">Producto</th>
+                <th className="w-20 py-2">Cant.</th>
+                {editando && <th className="no-print w-36 py-2">Lista de precio</th>}
+                <th className="w-28 py-2">Precio</th>
+                <th className="w-20 py-2">Desc. %</th>
+                <th className="w-28 py-2 text-right">Subtotal</th>
+                {editando && <th className="no-print w-8 py-2"></th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => (
+                <tr key={item.id ?? `nuevo-${idx}`} className="border-b border-neutral-50">
+                  <td className="py-2 font-mono text-xs text-neutral-500">{item.codigo}</td>
+                  <td className="py-2 font-medium">
+                    {item.nombre} {item.color && <span className="text-neutral-500">— {item.color}</span>}
+                  </td>
+                  <td className="py-2">
+                    {editando ? (
+                      <input
+                        type="number"
+                        className="input no-spinner py-1"
+                        value={item.cantidad}
+                        onChange={(e) => actualizarItem(idx, "cantidad", Number(e.target.value))}
+                      />
+                    ) : (
+                      item.cantidad
+                    )}
+                  </td>
+                  {editando && (
+                    <td className="no-print py-2">
+                      <select
+                        className="input py-1"
+                        value={item.tipoPrecio}
+                        onChange={(e) => cambiarTipoPrecio(idx, e.target.value as TipoPrecio)}
+                        disabled={!item.varianteInfo?.producto}
+                      >
+                        <option value="mayorista">Mayorista</option>
+                        <option value="minorista">Minorista</option>
+                        <option value="promocion">Promoción</option>
+                        <option value="manual">Manual</option>
+                      </select>
+                    </td>
+                  )}
+                  <td className="py-2">
+                    {editando ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        disabled={item.tipoPrecio !== "manual"}
+                        className="input no-spinner py-1 disabled:bg-neutral-50 disabled:text-neutral-500"
+                        value={item.precio_unitario}
+                        onChange={(e) => actualizarItem(idx, "precio_unitario", Number(e.target.value))}
+                      />
+                    ) : (
+                      `$${formatearMoneda(item.precio_unitario)}`
+                    )}
+                  </td>
+                  <td className="py-2">
+                    {editando ? (
+                      <input
+                        type="number"
+                        className="input no-spinner py-1"
+                        value={item.descuento_porcentaje}
+                        onChange={(e) => actualizarItem(idx, "descuento_porcentaje", Number(e.target.value))}
+                      />
+                    ) : (
+                      `${item.descuento_porcentaje}%`
+                    )}
+                  </td>
+                  <td className="py-2 text-right font-medium">${formatearMoneda(item.subtotal)}</td>
+                  {editando && (
+                    <td className="no-print py-2 text-center">
+                      <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
+                        ✕
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div className="mb-4 flex justify-end border-t border-neutral-100 pt-4">
           <div className="text-right">
             <p className="text-sm text-neutral-500">Total</p>
-                        <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(total)}</p>
+            <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(total)}</p>
           </div>
         </div>
 
