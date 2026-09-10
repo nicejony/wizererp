@@ -109,13 +109,38 @@ export default function ListasPreciosPanel() {
   const agrupadoPorRubro = orden === "rubro_nombre";
   const mostrarRubroSuelto = mostrarRubro && !agrupadoPorRubro;
 
+    function calcularFiltrados(soloAct: boolean, rubros: Set<string>, query: string) {
+    return productos
+      .filter((p) => (soloAct ? p.activo : true))
+      .filter((p) => (rubros.size === 0 ? true : p.categoria_id && rubros.has(p.categoria_id)))
+      .filter((p) => {
+        if (!query.trim()) return true;
+        const q = query.toLowerCase();
+        return p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q);
+      });
+  }
+
   function toggleRubro(id: string) {
     setRubrosSel((prev) => {
       const nuevo = new Set(prev);
       if (nuevo.has(id)) nuevo.delete(id);
       else nuevo.add(id);
+      const filtrados = calcularFiltrados(soloActivos, nuevo, busqueda);
+      setSeleccionados(new Set(filtrados.map((p) => p.id)));
       return nuevo;
     });
+  }
+
+  function limpiarRubros() {
+    setRubrosSel(new Set());
+    const filtrados = calcularFiltrados(soloActivos, new Set(), busqueda);
+    setSeleccionados(new Set(filtrados.map((p) => p.id)));
+  }
+
+  function cambiarSoloActivos(valor: boolean) {
+    setSoloActivos(valor);
+    const filtrados = calcularFiltrados(valor, rubrosSel, busqueda);
+    setSeleccionados(new Set(filtrados.map((p) => p.id)));
   }
 
   function toggleSeleccion(id: string) {
@@ -667,11 +692,11 @@ export default function ListasPreciosPanel() {
             </label>
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-2">
-                <input type="radio" checked={soloActivos} onChange={() => setSoloActivos(true)} />
+                               <input type="radio" checked={soloActivos} onChange={() => cambiarSoloActivos(true)} />
                 Solo productos activos
               </label>
               <label className="flex items-center gap-2">
-                <input type="radio" checked={!soloActivos} onChange={() => setSoloActivos(false)} />
+                <input type="radio" checked={!soloActivos} onChange={() => cambiarSoloActivos(false)} />
                 Todos
               </label>
             </div>
