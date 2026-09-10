@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatearMoneda } from "@/lib/format";
 import BotonImprimir from "@/components/BotonImprimir";
@@ -106,6 +106,9 @@ export default function ListasPreciosPanel() {
     return ordenados;
   }, [productos, seleccionados, orden]);
 
+  const agrupadoPorRubro = orden === "rubro_nombre";
+  const mostrarRubroSuelto = mostrarRubro && !agrupadoPorRubro;
+
   function toggleRubro(id: string) {
     setRubrosSel((prev) => {
       const nuevo = new Set(prev);
@@ -124,12 +127,16 @@ export default function ListasPreciosPanel() {
     });
   }
 
-  function seleccionarTodosResultados() {
+  function agregarResultadosASeleccion() {
     setSeleccionados((prev) => {
       const nuevo = new Set(prev);
       resultadosFiltrados.forEach((p) => nuevo.add(p.id));
       return nuevo;
     });
+  }
+
+  function usarSoloEstosResultados() {
+    setSeleccionados(new Set(resultadosFiltrados.map((p) => p.id)));
   }
 
   function quitarTodosResultados() {
@@ -248,6 +255,18 @@ export default function ListasPreciosPanel() {
       }
     }
 
+    function tituloRubro(nombreRubro: string) {
+      if (y + 10 > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(124, 58, 237);
+      doc.text(nombreRubro.toUpperCase(), margen, y);
+      y += 6;
+    }
+
     if (presentacion === "lista") {
       const colFoto = margen;
       const colCodigo = margen + (mostrarFoto ? 16 : 0);
@@ -269,7 +288,15 @@ export default function ListasPreciosPanel() {
       }
       encabezado();
 
+      let rubroAnterior: string | null = null;
+
       for (const p of productosParaLista) {
+        if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
+          tituloRubro(p.categoriaNombre);
+          encabezado();
+          rubroAnterior = p.categoriaNombre;
+        }
+
         const alturaFila = mostrarFoto ? 14 : 7;
         if (y + alturaFila > 280) {
           doc.addPage();
@@ -292,7 +319,7 @@ export default function ListasPreciosPanel() {
         if (mostrarCodigo) doc.text(p.codigo, colCodigo, y);
 
         const nombreTexto =
-          p.nombre + (p.colores.length ? ` (${p.colores.join(", ")})` : "") + (mostrarRubro ? ` — ${p.categoriaNombre}` : "");
+          p.nombre + (p.colores.length ? ` (${p.colores.join(", ")})` : "") + (mostrarRubroSuelto ? ` — ${p.categoriaNombre}` : "");
         const lineas = doc.splitTextToSize(nombreTexto, colPrecioX - colNombre - 25);
         doc.text(lineas, colNombre, y);
 
@@ -307,77 +334,88 @@ export default function ListasPreciosPanel() {
     } else {
       const colAncho = anchoUtil / 2 - 4;
       const alturaImagen = mostrarFoto ? colAncho * 0.75 : 0;
-      const alturaTextoEstimada = 6 + (mostrarCodigo ? 4 : 0) + 8;
-      const alturaFilaEstimada = alturaImagen + alturaTextoEstimada + 8;
+      let x = margen;
+      let colIdx = 0;
+      let filaMaxY = y;
+      let rubroAnterior: string | null = null;
 
-      for (let i = 0; i < productosParaLista.length; i += 2) {
-        if (y + alturaFilaEstimada > 280) {
-          doc.addPage();
-          y = 20;
+      for (const p of productosParaLista) {
+        if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
+          if (colIdx !== 0) {
+            y = filaMaxY + 4;
+            colIdx = 0;
+            x = margen;
+          }
+          tituloRubro(p.categoriaNombre);
+          filaMaxY = y;
+          rubroAnterior = p.categoriaNombre;
         }
 
-        const filaProductos = productosParaLista.slice(i, i + 2);
-        let filaAlturaMax = 0;
+        const alturaEstimada =
+          alturaImagen + 5 + (p.colores.length ? 4 : 0) + (mostrarCodigo ? 4 : 0) + (mostrarRubroSuelto ? 4 : 0) + 6 + 4;
+        if (colIdx === 0 && y + alturaEstimada > 280) {
+          doc.addPage();
+          y = 20;
+          filaMaxY = y;
+        }
 
-        filaProductos.forEach((p, idx) => {
-          const x = margen + idx * (colAncho + 8);
-          const cardY = y;
-
-          if (mostrarFoto) {
-            const img = imagenesCache[p.id];
-            if (img) {
-              try {
-                doc.addImage(img, "JPEG", x, cardY, colAncho, alturaImagen);
-              } catch {}
-            } else {
-              doc.setFillColor(245, 245, 245);
-              doc.rect(x, cardY, colAncho, alturaImagen, "F");
-              doc.setFont("helvetica", "normal");
-              doc.setFontSize(7);
-              doc.setTextColor(190, 190, 190);
-              doc.text("Sin foto", x + colAncho / 2, cardY + alturaImagen / 2, { align: "center" });
-            }
+        const cardY = y;
+        if (mostrarFoto) {
+          const img = imagenesCache[p.id];
+          if (img) {
+            try {
+              doc.addImage(img, "JPEG", x, cardY, colAncho, alturaImagen);
+            } catch {}
+          } else {
+            doc.setDrawColor(230, 230, 230);
+            doc.rect(x, cardY, colAncho, alturaImagen);
           }
+        }
+        let textoY = cardY + (mostrarFoto ? alturaImagen + 5 : 5);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(30, 30, 30);
+        doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
+        textoY += 5;
+        if (p.colores.length) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(120, 120, 120);
+          doc.text(p.colores.join(", "), x, textoY);
+          textoY += 4;
+        }
+        if (mostrarCodigo) {
+          doc.setFontSize(7);
+          doc.text(p.codigo, x, textoY);
+          textoY += 4;
+        }
+        if (mostrarRubroSuelto) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.setTextColor(150, 150, 150);
+          doc.text(p.categoriaNombre, x, textoY);
+          textoY += 4;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(124, 58, 237);
+        let precioTexto = "";
+        if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
+        else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
+        else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
+        doc.text(precioTexto, x, textoY);
+        textoY += 6;
 
-          let textoY = cardY + (mostrarFoto ? alturaImagen + 5 : 5);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(30, 30, 30);
-          doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
-          textoY += 5;
-          if (p.colores.length) {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            doc.setTextColor(120, 120, 120);
-            doc.text(p.colores.join(", "), x, textoY);
-            textoY += 4;
-          }
-                    if (mostrarCodigo) {
-            doc.setFontSize(7);
-            doc.text(p.codigo, x, textoY);
-            textoY += 4;
-          }
-          if (mostrarRubro) {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(7);
-            doc.setTextColor(150, 150, 150);
-            doc.text(p.categoriaNombre, x, textoY);
-            textoY += 4;
-          }
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(124, 58, 237);
-          let precioTexto = "";
-          if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
-          else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
-          else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
-          doc.text(precioTexto, x, textoY);
-          textoY += 6;
+        filaMaxY = Math.max(filaMaxY, textoY);
 
-          filaAlturaMax = Math.max(filaAlturaMax, textoY - cardY);
-        });
-
-        y += filaAlturaMax + 4;
+        colIdx++;
+        if (colIdx >= 2) {
+          colIdx = 0;
+          x = margen;
+          y = filaMaxY + 4;
+        } else {
+          x = margen + colAncho + 8;
+        }
       }
     }
 
@@ -436,68 +474,108 @@ export default function ListasPreciosPanel() {
             </div>
 
             {presentacion === "lista" ? (
-              <table className="w-full text-sm">
-                <thead className="border-b border-neutral-100 text-left text-neutral-500">
-                  <tr>
-                    {mostrarFoto && <th className="py-2">Foto</th>}
-                    {mostrarCodigo && <th className="py-2">Código</th>}
-                    <th className="py-2">Producto</th>
-                    {mostrarRubro && <th className="py-2">Rubro</th>}
-                    {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && <th className="py-2 text-right">Mayorista</th>}
-                    {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && <th className="py-2 text-right">Minorista</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {productosParaLista.map((p) => (
-                    <tr key={p.id} className="border-b border-neutral-50">
-                      {mostrarFoto && (
-                        <td className="py-2">
-                          {p.foto_url ? (
-                            <img src={p.foto_url} alt="" className="h-10 w-10 rounded object-cover" />
-                          ) : (
-                            <span className="text-neutral-300">—</span>
-                          )}
-                        </td>
-                      )}
-                      {mostrarCodigo && <td className="py-2 font-mono text-xs">{p.codigo}</td>}
-                      <td className="py-2 font-medium">
-                        {p.nombre}
-                        {p.colores.length > 0 && <span className="text-neutral-500"> ({p.colores.join(", ")})</span>}
-                      </td>
-                      {mostrarRubro && <td className="py-2 text-neutral-500">{p.categoriaNombre}</td>}
-                      {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && (
-                        <td className="py-2 text-right">${formatearMoneda(p.precio_mayorista)}</td>
-                      )}
-                      {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && (
-                        <td className="py-2 text-right">${formatearMoneda(p.precio_minorista)}</td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              (() => {
+                let rubroAnterior: string | null = null;
+                const colSpanTotal =
+                  (mostrarFoto ? 1 : 0) +
+                  (mostrarCodigo ? 1 : 0) +
+                  1 +
+                  (mostrarRubroSuelto ? 1 : 0) +
+                  (tipoPrecio === "ambos" ? 2 : 1);
+                return (
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-neutral-100 text-left text-neutral-500">
+                      <tr>
+                        {mostrarFoto && <th className="py-2">Foto</th>}
+                        {mostrarCodigo && <th className="py-2">Código</th>}
+                        <th className="py-2">Producto</th>
+                        {mostrarRubroSuelto && <th className="py-2">Rubro</th>}
+                        {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && <th className="py-2 text-right">Mayorista</th>}
+                        {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && <th className="py-2 text-right">Minorista</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productosParaLista.map((p) => {
+                        const mostrarHeader = agrupadoPorRubro && p.categoriaNombre !== rubroAnterior;
+                        rubroAnterior = p.categoriaNombre;
+                        return (
+                          <Fragment key={p.id}>
+                            {mostrarHeader && (
+                              <tr className="bg-violet-50">
+                                <td colSpan={colSpanTotal} className="px-1 py-2 text-xs font-bold uppercase tracking-wide text-violet-700">
+                                  {p.categoriaNombre}
+                                </td>
+                              </tr>
+                            )}
+                            <tr className="border-b border-neutral-50">
+                              {mostrarFoto && (
+                                <td className="py-2">
+                                  {p.foto_url ? (
+                                    <img src={p.foto_url} alt="" className="h-10 w-10 rounded object-cover" />
+                                  ) : (
+                                    <span className="text-neutral-300">—</span>
+                                  )}
+                                </td>
+                              )}
+                              {mostrarCodigo && <td className="py-2 font-mono text-xs">{p.codigo}</td>}
+                              <td className="py-2 font-medium">
+                                {p.nombre}
+                                {p.colores.length > 0 && <span className="text-neutral-500"> ({p.colores.join(", ")})</span>}
+                              </td>
+                              {mostrarRubroSuelto && <td className="py-2 text-neutral-500">{p.categoriaNombre}</td>}
+                              {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && (
+                                <td className="py-2 text-right">${formatearMoneda(p.precio_mayorista)}</td>
+                              )}
+                              {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && (
+                                <td className="py-2 text-right">${formatearMoneda(p.precio_minorista)}</td>
+                              )}
+                            </tr>
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                );
+              })()
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {productosParaLista.map((p) => (
-                  <div key={p.id} className="rounded-lg border border-neutral-100 p-3">
-                    {mostrarFoto &&
-                      (p.foto_url ? (
-                        <img src={p.foto_url} alt="" className="mb-2 h-28 w-full rounded object-cover" />
-                      ) : (
-                        <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-neutral-50 text-xs text-neutral-300">
-                          Sin foto
-                        </div>
-                      ))}
-                    <p className="text-sm font-medium">{p.nombre}</p>
-                    {p.colores.length > 0 && <p className="text-xs text-neutral-500">{p.colores.join(", ")}</p>}
-                    {mostrarCodigo && <p className="font-mono text-xs text-neutral-400">{p.codigo}</p>}
-                    {mostrarRubro && <p className="text-xs text-neutral-400">{p.categoriaNombre}</p>}
-                    <div className="mt-1 text-sm font-semibold text-violet-700">
-                      {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && <p>May: ${formatearMoneda(p.precio_mayorista)}</p>}
-                      {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && <p>Min: ${formatearMoneda(p.precio_minorista)}</p>}
-                    </div>
+              (() => {
+                let rubroAnterior: string | null = null;
+                return (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {productosParaLista.map((p) => {
+                      const mostrarHeader = agrupadoPorRubro && p.categoriaNombre !== rubroAnterior;
+                      rubroAnterior = p.categoriaNombre;
+                      return (
+                        <Fragment key={p.id}>
+                          {mostrarHeader && (
+                            <div className="col-span-2 rounded bg-violet-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-violet-700 sm:col-span-3">
+                              {p.categoriaNombre}
+                            </div>
+                          )}
+                          <div className="rounded-lg border border-neutral-100 p-3">
+                            {mostrarFoto &&
+                              (p.foto_url ? (
+                                <img src={p.foto_url} alt="" className="mb-2 h-28 w-full rounded object-cover" />
+                              ) : (
+                                <div className="mb-2 flex h-28 w-full items-center justify-center rounded bg-neutral-50 text-xs text-neutral-300">
+                                  Sin foto
+                                </div>
+                              ))}
+                            <p className="text-sm font-medium">{p.nombre}</p>
+                            {p.colores.length > 0 && <p className="text-xs text-neutral-500">{p.colores.join(", ")}</p>}
+                            {mostrarCodigo && <p className="font-mono text-xs text-neutral-400">{p.codigo}</p>}
+                            {mostrarRubroSuelto && <p className="text-xs text-neutral-400">{p.categoriaNombre}</p>}
+                            <div className="mt-1 text-sm font-semibold text-violet-700">
+                              {(tipoPrecio === "mayorista" || tipoPrecio === "ambos") && <p>May: ${formatearMoneda(p.precio_mayorista)}</p>}
+                              {(tipoPrecio === "minorista" || tipoPrecio === "ambos") && <p>Min: ${formatearMoneda(p.precio_minorista)}</p>}
+                            </div>
+                          </div>
+                        </Fragment>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                );
+              })()
             )}
 
             {productosParaLista.length === 0 && (
@@ -604,14 +682,17 @@ export default function ListasPreciosPanel() {
               <p className="text-sm font-medium text-neutral-500">
                 Productos ({resultadosFiltrados.length} resultados, {seleccionados.size} seleccionados en total)
               </p>
-              <div className="flex gap-3">
-                <button onClick={seleccionarTodosResultados} className="text-xs font-medium text-violet-600 hover:underline">
-                  seleccionar todos
-                </button>
-                <button onClick={quitarTodosResultados} className="text-xs text-neutral-400 hover:underline">
-                  quitar todos
-                </button>
-              </div>
+            </div>
+            <div className="mb-3 flex flex-wrap gap-3 rounded-lg bg-violet-50 px-3 py-2 text-xs">
+              <button onClick={usarSoloEstosResultados} className="font-semibold text-violet-700 hover:underline">
+                ✓ Usar solo estos {resultadosFiltrados.length} resultados (reemplaza la selección)
+              </button>
+              <button onClick={agregarResultadosASeleccion} className="text-neutral-500 hover:underline">
+                + agregar estos a la selección
+              </button>
+              <button onClick={quitarTodosResultados} className="text-neutral-500 hover:underline">
+                − quitar estos de la selección
+              </button>
             </div>
             <div className="max-h-72 space-y-1 overflow-y-auto">
               {resultadosFiltrados.map((p) => (
@@ -659,7 +740,7 @@ export default function ListasPreciosPanel() {
               <label>
                 <span className="mb-1 block text-xs text-neutral-500">Ordenar por</span>
                 <select className="input" value={orden} onChange={(e) => setOrden(e.target.value as Orden)}>
-                  <option value="rubro_nombre">Rubro + Nombre</option>
+                  <option value="rubro_nombre">Rubro + Nombre (agrupado con títulos)</option>
                   <option value="nombre">Nombre</option>
                   <option value="codigo">Código</option>
                 </select>
