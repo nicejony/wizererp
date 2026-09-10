@@ -634,7 +634,7 @@ export default function ListasPreciosPanel() {
             <p className="mb-3 text-sm font-medium text-neutral-500">Rubros</p>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setRubrosSel(new Set())}
+                                onClick={limpiarRubros}
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                   rubrosSel.size === 0 ? "bg-violet-600 text-white" : "bg-neutral-100 text-neutral-600"
                 }`}
