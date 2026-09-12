@@ -22,7 +22,8 @@ export default function ProductoEditor({
   const router = useRouter();
   const supabase = createClient();
 
-  const [form, setForm] = useState({
+    const [form, setForm] = useState({
+    codigo: producto.codigo,
     nombre: producto.nombre,
     rodado: producto.rodado ?? "",
     costo: String(producto.costo),
@@ -56,9 +57,10 @@ export default function ProductoEditor({
 
   async function guardarProducto() {
     setGuardandoProducto(true);
-    const { error } = await supabase
+        const { error } = await supabase
       .from("productos")
       .update({
+        codigo: form.codigo,
         nombre: form.nombre,
         rodado: form.rodado || null,
         costo: Number(form.costo) || 0,
@@ -159,9 +161,9 @@ export default function ProductoEditor({
       <div className="card space-y-4">
         <p className="text-sm font-medium text-neutral-500">Datos generales</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label>
+                    <label>
             <span className="mb-1 block text-sm font-medium">Código</span>
-            <input disabled className="input bg-neutral-50 text-neutral-500" value={producto.codigo} />
+            <input className="input" value={form.codigo} onChange={(e) => update("codigo", e.target.value)} />
           </label>
           <label>
             <span className="mb-1 block text-sm font-medium">Nombre</span>
