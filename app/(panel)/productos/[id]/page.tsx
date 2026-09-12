@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import ProductoEditor from "@/components/ProductoEditor";
 
 export default async function EditarProductoPage({ params }: { params: { id: string } }) {
@@ -20,9 +21,13 @@ export default async function EditarProductoPage({ params }: { params: { id: str
       ? await supabase.from("variante_stock").select("*").in("variante_id", varianteIds)
       : { data: [] };
 
-  return (
+    return (
     <div className="max-w-3xl">
-      <h1 className="mb-6 text-2xl font-semibold">Editar producto</h1>
+      <Link href="/productos" className="text-xs text-neutral-400 hover:underline">
+        ← Volver a Productos
+      </Link>
+      <h1 className="mb-2 mt-1 text-2xl font-semibold">Editar producto</h1>
+
       <ProductoEditor
         producto={producto}
         variantesIniciales={variantes ?? []}
