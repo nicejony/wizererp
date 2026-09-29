@@ -100,6 +100,10 @@ export default function ListasPreciosPanel() {
     const ordenados = [...elegidos].sort((a, b) => {
       if (orden === "codigo") return a.codigo.localeCompare(b.codigo);
       if (orden === "nombre") return a.nombre.localeCompare(b.nombre);
+            const esFusiblesA = a.categoriaNombre.toLowerCase() === "fusibles";
+      const esFusiblesB = b.categoriaNombre.toLowerCase() === "fusibles";
+      if (esFusiblesA && !esFusiblesB) return 1;
+      if (!esFusiblesA && esFusiblesB) return -1;
       const rubroCmp = a.categoriaNombre.localeCompare(b.categoriaNombre);
       return rubroCmp !== 0 ? rubroCmp : a.nombre.localeCompare(b.nombre);
     });
