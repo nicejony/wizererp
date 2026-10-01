@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Cliente, DocumentoItem, ProductoVariante, TipoPrecio, FORMAS_PAGO } from "@/lib/types";
 import { formatearMoneda } from "@/lib/format";
 
+type MonedaDoc = "ARS" | "USD";
+
 function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio, tipoCambio: number): number {
   const p = v.producto!;
   let precio: number;
@@ -31,6 +33,7 @@ export default function NuevoPresupuestoPage() {
   const [formaPago, setFormaPago] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [tipoCambio, setTipoCambio] = useState(1);
+  const [monedaDocumento, setMonedaDocumento] = useState<MonedaDoc>("ARS");
 
   useEffect(() => {
     supabase
@@ -63,6 +66,14 @@ export default function NuevoPresupuestoPage() {
     }, 200);
     return () => clearTimeout(t);
   }, [productoQuery]);
+
+  function aMonedaDoc(montoArs: number): number {
+    return monedaDocumento === "USD" ? montoArs / tipoCambio : montoArs;
+  }
+  function aArs(montoEnMonedaDoc: number): number {
+    return monedaDocumento === "USD" ? montoEnMonedaDoc * tipoCambio : montoEnMonedaDoc;
+  }
+  const simboloMoneda = monedaDocumento === "USD" ? "U$D" : "$";
 
   function agregarVariante(v: ProductoVariante) {
     setItems((prev) => {
@@ -100,8 +111,14 @@ export default function NuevoPresupuestoPage() {
     return { ...item, subtotal: bruto - (bruto * item.descuento_porcentaje) / 100 };
   }
 
-  function actualizarItem(idx: number, campo: "cantidad" | "precio_unitario" | "descuento_porcentaje", valor: number) {
+  function actualizarItem(idx: number, campo: "cantidad" | "descuento_porcentaje", valor: number) {
     setItems((prev) => prev.map((item, i) => (i === idx ? recalcularSubtotal({ ...item, [campo]: valor }) : item)));
+  }
+
+  function actualizarPrecioManual(idx: number, valorEnMonedaDoc: number) {
+    setItems((prev) =>
+      prev.map((item, i) => (i === idx ? recalcularSubtotal({ ...item, precio_unitario: aArs(valorEnMonedaDoc) }) : item))
+    );
   }
 
   function cambiarTipoPrecio(idx: number, tipo: TipoPrecio) {
@@ -134,6 +151,8 @@ export default function NuevoPresupuestoPage() {
         subtotal: total,
         total,
         estado: "confirmado",
+        moneda: monedaDocumento,
+        tipo_cambio_aplicado: tipoCambio,
       })
       .select()
       .single();
@@ -162,9 +181,24 @@ export default function NuevoPresupuestoPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="mb-6 text-2xl font-semibold">Nuevo presupuesto</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Nuevo presupuesto</h1>
+        <div className="flex items-center gap-2 rounded-lg bg-neutral-100 p-1 text-sm">
+          <button
+            onClick={() => setMonedaDocumento("ARS")}
+            className={`rounded-md px-3 py-1 font-medium ${monedaDocumento === "ARS" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
+          >
+            Pesos (ARS)
+          </button>
+          <button
+            onClick={() => setMonedaDocumento("USD")}
+            className={`rounded-md px-3 py-1 font-medium ${monedaDocumento === "USD" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
+          >
+            Dólares (USD)
+          </button>
+        </div>
+      </div>
 
-      {/* Cliente */}
       <div className="card mb-4">
         <span className="mb-2 block text-sm font-medium">Cliente</span>
         {cliente ? (
@@ -204,7 +238,6 @@ export default function NuevoPresupuestoPage() {
         )}
       </div>
 
-      {/* Buscador de productos (por variante/color) */}
       <div className="card mb-4">
         <span className="mb-2 block text-sm font-medium">Agregar productos</span>
         <div className="relative">
@@ -226,7 +259,9 @@ export default function NuevoPresupuestoPage() {
                     {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}{" "}
                     <span className="text-neutral-400">({v.producto?.codigo})</span>
                   </span>
-                  <span className="font-medium">${formatearMoneda(v.producto?.precio_mayorista ?? 0)}</span>
+                  <span className="font-medium">
+                    {simboloMoneda}{formatearMoneda(aMonedaDoc(v.producto?.precio_mayorista ?? 0))}
+                  </span>
                 </button>
               ))}
             </div>
@@ -234,7 +269,6 @@ export default function NuevoPresupuestoPage() {
         </div>
       </div>
 
-      {/* Items */}
       <div className="card mb-4 overflow-x-auto p-0">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="border-b border-neutral-100 bg-neutral-50 text-left text-neutral-500">
@@ -243,7 +277,7 @@ export default function NuevoPresupuestoPage() {
               <th className="px-3 py-2">Producto</th>
               <th className="w-24 px-3 py-2">Cant.</th>
               <th className="w-40 px-3 py-2">Lista de precio</th>
-              <th className="w-28 px-3 py-2">Precio</th>
+              <th className="w-28 px-3 py-2">Precio ({simboloMoneda})</th>
               <th className="w-20 px-3 py-2">Desc. %</th>
               <th className="w-28 px-3 py-2 text-right">Subtotal</th>
               <th className="w-10 px-3 py-2"></th>
@@ -284,8 +318,8 @@ export default function NuevoPresupuestoPage() {
                     step="0.01"
                     disabled={item.tipoPrecio !== "manual"}
                     className="input no-spinner py-1 disabled:bg-neutral-50 disabled:text-neutral-500"
-                    value={item.precio_unitario}
-                    onChange={(e) => actualizarItem(idx, "precio_unitario", Number(e.target.value))}
+                    value={aMonedaDoc(item.precio_unitario).toFixed(2)}
+                    onChange={(e) => actualizarPrecioManual(idx, Number(e.target.value))}
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -296,7 +330,9 @@ export default function NuevoPresupuestoPage() {
                     onChange={(e) => actualizarItem(idx, "descuento_porcentaje", Number(e.target.value))}
                   />
                 </td>
-                <td className="px-3 py-2 text-right font-medium">${formatearMoneda(item.subtotal)}</td>
+                <td className="px-3 py-2 text-right font-medium">
+                  {simboloMoneda}{formatearMoneda(aMonedaDoc(item.subtotal))}
+                </td>
                 <td className="px-3 py-2 text-center">
                   <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
                     ✕
@@ -315,7 +351,6 @@ export default function NuevoPresupuestoPage() {
         </table>
       </div>
 
-      {/* Totales y observaciones */}
       <div className="card mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-3 block">
@@ -335,8 +370,13 @@ export default function NuevoPresupuestoPage() {
           </label>
         </div>
         <div className="flex flex-col items-start justify-end sm:items-end">
+          {monedaDocumento === "USD" && (
+            <span className="text-xs text-neutral-400">Cotización usada: ${formatearMoneda(tipoCambio)}</span>
+          )}
           <span className="text-sm text-neutral-500">Total</span>
-          <span className="text-3xl font-semibold text-violet-700">${formatearMoneda(total)}</span>
+          <span className="text-3xl font-semibold text-violet-700">
+            {simboloMoneda}{formatearMoneda(aMonedaDoc(total))}
+          </span>
         </div>
       </div>
 
