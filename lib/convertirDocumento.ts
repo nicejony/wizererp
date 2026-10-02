@@ -30,12 +30,14 @@ export async function convertirDocumento(documentoOrigenId: string, nuevoTipo: D
       estado: "confirmado",
       cliente_id: origen.cliente_id,
       vendedor_id: origen.vendedor_id,
-      documento_origen_id: origen.id,
+        documento_origen_id: origen.id,
       forma_pago: origen.forma_pago,
       observaciones: origen.observaciones,
       subtotal: origen.subtotal,
       total: origen.total,
       costo_total: costoTotal,
+      moneda: origen.moneda,
+      tipo_cambio_aplicado: origen.tipo_cambio_aplicado,
     })
     .select()
     .single();
