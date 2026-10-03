@@ -23,14 +23,14 @@ export async function convertirDocumento(documentoOrigenId: string, nuevoTipo: D
     0
   );
 
-  const { data: nuevo, error: errorNuevo } = await supabase
+    const { data: nuevo, error: errorNuevo } = await supabase
     .from("documentos")
     .insert({
       tipo: nuevoTipo,
-      estado: "confirmado",
+      estado: "borrador", // se confirma recién abajo, después de cargar los items
       cliente_id: origen.cliente_id,
       vendedor_id: origen.vendedor_id,
-        documento_origen_id: origen.id,
+      documento_origen_id: origen.id,
       forma_pago: origen.forma_pago,
       observaciones: origen.observaciones,
       subtotal: origen.subtotal,
@@ -57,5 +57,12 @@ export async function convertirDocumento(documentoOrigenId: string, nuevoTipo: D
   const { error: errorItems } = await supabase.from("documento_items").insert(itemsPayload);
   if (errorItems) throw errorItems;
 
-  return nuevo;
-}
+  // Recién ahora confirmamos: así el trigger que descuenta stock (o acredita cta. cte./caja) encuentra los items ya cargados
+  const { error: errorConfirmar } = await supabase
+    .from("documentos")
+    .update({ estado: "confirmado" })
+    .eq("id", nuevo.id);
+  if (errorConfirmar) throw errorConfirmar;
+
+  return { ...nuevo, estado: "confirmado" };
+
