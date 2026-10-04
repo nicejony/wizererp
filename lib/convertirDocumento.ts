@@ -64,5 +64,7 @@ export async function convertirDocumento(documentoOrigenId: string, nuevoTipo: D
     .eq("id", nuevo.id);
   if (errorConfirmar) throw errorConfirmar;
 
-  return { ...nuevo, estado: "confirmado" };
+    return { ...nuevo, estado: "confirmado" };
+}
+
 
