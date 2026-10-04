@@ -34,8 +34,8 @@ export default function ReportesPanel() {
   const [sinVentas, setSinVentas] = useState<string[]>([]);
 
   const [cargandoRentabilidad, setCargandoRentabilidad] = useState(true);
-  const [rentabilidadPorArticulo, setRentabilidadPorArticulo] = useState<
-    { nombre: string; costoArs: number; precioMinorista: number; rentabilidad: number }[]
+    const [rentabilidadPorArticulo, setRentabilidadPorArticulo] = useState<
+    { nombre: string; costoArs: number; precioMayorista: number; rentabilidad: number }[]
   >([]);
 
   const cargarDatos = useCallback(async () => {
