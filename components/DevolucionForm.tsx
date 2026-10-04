@@ -40,11 +40,11 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
     if (itemsADevolver.length === 0) return;
     setGuardando(true);
 
-    const { data: nota, error } = await supabase
+        const { data: nota, error } = await supabase
       .from("documentos")
       .insert({
         tipo: "nota_credito",
-        estado: "confirmado",
+        estado: "borrador", // se confirma recién después de cargar los items, para que el trigger de stock los vea
         cliente_id: venta.cliente_id,
         documento_origen_id: venta.id,
         subtotal: totalDevolucion,
@@ -76,6 +76,9 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
     });
 
     await supabase.from("documento_items").insert(itemsPayload);
+
+    // Recién ahora confirmamos: así el trigger que repone el stock encuentra los items ya cargados
+    await supabase.from("documentos").update({ estado: "confirmado" }).eq("id", nota.id);
 
     setGuardando(false);
     router.push(`/documentos/${nota.id}`);
