@@ -133,21 +133,21 @@ export default function ReportesPanel() {
     setCargando(false);
   }, [desde, hasta]);
 
-  const cargarRentabilidad = useCallback(async () => {
+   const cargarRentabilidad = useCallback(async () => {
     setCargandoRentabilidad(true);
     const [{ data: productos }, { data: tipoCambioData }] = await Promise.all([
-      supabase.from("productos").select("nombre, costo, moneda_costo, precio_minorista").eq("activo", true),
+      supabase.from("productos").select("nombre, costo, moneda_costo, precio_mayorista").eq("activo", true),
       supabase.from("tipo_cambio").select("valor").limit(1).single(),
     ]);
     const tipoCambio = Number(tipoCambioData?.valor) || 1;
 
     const filas = (productos ?? [])
-      .filter((p) => Number(p.precio_minorista) > 0)
+      .filter((p) => Number(p.precio_mayorista) > 0)
       .map((p) => {
         const costoArs = p.moneda_costo === "USD" ? Number(p.costo) * tipoCambio : Number(p.costo);
-        const precioMinorista = Number(p.precio_minorista);
-        const rentabilidad = ((precioMinorista - costoArs) / precioMinorista) * 100;
-        return { nombre: p.nombre, costoArs, precioMinorista, rentabilidad };
+        const precioMayorista = Number(p.precio_mayorista);
+        const rentabilidad = ((precioMayorista - costoArs) / precioMayorista) * 100;
+        return { nombre: p.nombre, costoArs, precioMayorista, rentabilidad };
       })
       .sort((a, b) => b.rentabilidad - a.rentabilidad);
 
