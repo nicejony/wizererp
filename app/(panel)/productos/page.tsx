@@ -7,14 +7,25 @@ import { Package } from "lucide-react";
 
 export default async function ProductosPage() {
   const supabase = createClient();
-  const { data: variantes } = await supabase
-    .from("variante_resumen")
-    .select(
-      "*, productos(codigo, nombre, costo, moneda_costo, precio_mayorista, precio_minorista, moneda_venta, foto_url, categorias(nombre))"
-    )
-    .eq("activo", true);
+  const [{ data: variantes }, { data: tipoCambioData }] = await Promise.all([
+    supabase
+      .from("variante_resumen")
+      .select(
+        "*, productos(codigo, nombre, costo, moneda_costo, precio_mayorista, precio_minorista, moneda_venta, foto_url, categorias(nombre))"
+      )
+      .eq("activo", true),
+    supabase.from("tipo_cambio").select("valor").limit(1).single(),
+  ]);
 
-  // Agrupar por rubro, ordenar rubros alfabéticamente (y "Sin rubro" siempre al final)
+  const tipoCambio = Number(tipoCambioData?.valor) || 1;
+
+  function calcularRentabilidad(v: any): number | null {
+    const p = v.productos;
+    if (!p || !p.precio_minorista) return null;
+    const costoArs = p.moneda_costo === "USD" ? Number(p.costo) * tipoCambio : Number(p.costo);
+    return ((Number(p.precio_minorista) - costoArs) / Number(p.precio_minorista)) * 100;
+  }
+
   const grupos: Record<string, any[]> = {};
   for (const v of variantes ?? []) {
     const rubro = v.productos?.categorias?.nombre ?? "Sin rubro";
@@ -64,6 +75,7 @@ export default async function ProductosPage() {
               <th className="px-4 py-3 text-right">Costo</th>
               <th className="px-4 py-3 text-right">P. Mayorista</th>
               <th className="px-4 py-3 text-right">P. Minorista</th>
+              <th className="px-4 py-3 text-right">Rentab. %</th>
               <th className="px-4 py-3 text-right">Stock</th>
             </tr>
           </thead>
@@ -71,52 +83,64 @@ export default async function ProductosPage() {
             {rubrosOrdenados.map((rubro) => (
               <Fragment key={rubro}>
                 <tr className="bg-violet-50">
-                  <td colSpan={8} className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-violet-700">
+                  <td colSpan={9} className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-violet-700">
                     {rubro} <span className="font-normal normal-case text-violet-400">({grupos[rubro].length})</span>
                   </td>
                 </tr>
-                {grupos[rubro].map((v: any) => (
-                  <tr key={v.variante_id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
-                    <td className="px-4 py-3">
-                      {v.productos?.foto_url ? (
-                        <img src={v.productos.foto_url} alt="" className="h-8 w-8 rounded object-cover" />
-                      ) : (
-                        <span title="Sin foto" className="text-neutral-300">
-                          ⚠️
+                {grupos[rubro].map((v: any) => {
+                  const rentabilidad = calcularRentabilidad(v);
+                  return (
+                    <tr key={v.variante_id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
+                      <td className="px-4 py-3">
+                        {v.productos?.foto_url ? (
+                          <img src={v.productos.foto_url} alt="" className="h-8 w-8 rounded object-cover" />
+                        ) : (
+                          <span title="Sin foto" className="text-neutral-300">
+                            ⚠️
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">{v.productos?.codigo}</td>
+                      <td className="px-4 py-3 font-medium">
+                        <Link href={`/productos/${v.producto_id}`} className="text-violet-700 hover:underline">
+                          {v.productos?.nombre}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">{v.color ?? "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        ${formatearMoneda(v.productos?.costo ?? 0)}
+                        {v.productos?.moneda_costo === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        ${formatearMoneda(v.productos?.precio_mayorista ?? 0)}
+                        {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        ${formatearMoneda(v.productos?.precio_minorista ?? 0)}
+                        {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {rentabilidad === null ? (
+                          "—"
+                        ) : (
+                          <span className={rentabilidad < 20 ? "font-semibold text-red-600" : "text-green-700"}>
+                            {rentabilidad.toFixed(1)}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={v.stock_total <= v.stock_minimo ? "font-semibold text-red-600" : "text-neutral-700"}>
+                          {v.stock_total}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">{v.productos?.codigo}</td>
-                    <td className="px-4 py-3 font-medium">
-                      <Link href={`/productos/${v.producto_id}`} className="text-violet-700 hover:underline">
-                        {v.productos?.nombre}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">{v.color ?? "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      ${formatearMoneda(v.productos?.costo ?? 0)}
-                      {v.productos?.moneda_costo === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      ${formatearMoneda(v.productos?.precio_mayorista ?? 0)}
-                      {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      ${formatearMoneda(v.productos?.precio_minorista ?? 0)}
-                      {v.productos?.moneda_venta === "USD" && <span className="ml-1 text-xs text-neutral-400">USD</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={v.stock_total <= v.stock_minimo ? "font-semibold text-red-600" : "text-neutral-700"}>
-                        {v.stock_total}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </Fragment>
             ))}
             {(!variantes || variantes.length === 0) && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-neutral-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-neutral-400">
                   No hay productos cargados todavía.
                 </td>
               </tr>
@@ -127,6 +151,3 @@ export default async function ProductosPage() {
     </div>
   );
 }
-
-
-
