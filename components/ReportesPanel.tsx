@@ -33,6 +33,11 @@ export default function ReportesPanel() {
   >([]);
   const [sinVentas, setSinVentas] = useState<string[]>([]);
 
+  const [cargandoRentabilidad, setCargandoRentabilidad] = useState(true);
+  const [rentabilidadPorArticulo, setRentabilidadPorArticulo] = useState<
+    { nombre: string; costoArs: number; precioMinorista: number; rentabilidad: number }[]
+  >([]);
+
   const cargarDatos = useCallback(async () => {
     setCargando(true);
 
@@ -128,9 +133,35 @@ export default function ReportesPanel() {
     setCargando(false);
   }, [desde, hasta]);
 
+  const cargarRentabilidad = useCallback(async () => {
+    setCargandoRentabilidad(true);
+    const [{ data: productos }, { data: tipoCambioData }] = await Promise.all([
+      supabase.from("productos").select("nombre, costo, moneda_costo, precio_minorista").eq("activo", true),
+      supabase.from("tipo_cambio").select("valor").limit(1).single(),
+    ]);
+    const tipoCambio = Number(tipoCambioData?.valor) || 1;
+
+    const filas = (productos ?? [])
+      .filter((p) => Number(p.precio_minorista) > 0)
+      .map((p) => {
+        const costoArs = p.moneda_costo === "USD" ? Number(p.costo) * tipoCambio : Number(p.costo);
+        const precioMinorista = Number(p.precio_minorista);
+        const rentabilidad = ((precioMinorista - costoArs) / precioMinorista) * 100;
+        return { nombre: p.nombre, costoArs, precioMinorista, rentabilidad };
+      })
+      .sort((a, b) => b.rentabilidad - a.rentabilidad);
+
+    setRentabilidadPorArticulo(filas);
+    setCargandoRentabilidad(false);
+  }, []);
+
   useEffect(() => {
     cargarDatos();
   }, [cargarDatos]);
+
+  useEffect(() => {
+    cargarRentabilidad();
+  }, [cargarRentabilidad]);
 
   return (
     <div className="space-y-6">
@@ -291,6 +322,50 @@ export default function ReportesPanel() {
           )}
         </>
       )}
+
+      <div className="card">
+        <p className="mb-1 text-sm font-medium text-neutral-500">Rentabilidad por artículo</p>
+        <p className="mb-4 text-xs text-neutral-400">De más rentable a menos rentable (en base al precio minorista actual).</p>
+        {cargandoRentabilidad ? (
+          <p className="text-sm text-neutral-400">Cargando...</p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 border-b border-neutral-100 bg-white text-left text-neutral-500">
+                <tr>
+                  <th className="py-2">#</th>
+                  <th className="py-2">Producto</th>
+                  <th className="py-2 text-right">Costo</th>
+                  <th className="py-2 text-right">P. Minorista</th>
+                  <th className="py-2 text-right">Rentabilidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rentabilidadPorArticulo.map((f, i) => (
+                  <tr key={i} className="border-b border-neutral-50">
+                    <td className="py-2 text-neutral-400">{i + 1}</td>
+                    <td className="py-2 font-medium">{f.nombre}</td>
+                    <td className="py-2 text-right">${formatearMoneda(f.costoArs)}</td>
+                    <td className="py-2 text-right">${formatearMoneda(f.precioMinorista)}</td>
+                    <td className="py-2 text-right">
+                      <span className={`font-semibold ${f.rentabilidad < 20 ? "text-red-600" : "text-green-700"}`}>
+                        {f.rentabilidad.toFixed(1)}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {rentabilidadPorArticulo.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-neutral-400">
+                      No hay productos con precio minorista cargado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
