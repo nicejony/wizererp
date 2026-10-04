@@ -336,7 +336,7 @@ export default function ReportesPanel() {
                   <th className="py-2">#</th>
                   <th className="py-2">Producto</th>
                   <th className="py-2 text-right">Costo</th>
-                  <th className="py-2 text-right">P. Minorista</th>
+                                    <th className="py-2 text-right">P. Mayorista</th>
                   <th className="py-2 text-right">Rentabilidad</th>
                 </tr>
               </thead>
