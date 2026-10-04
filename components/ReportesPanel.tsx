@@ -346,7 +346,7 @@ export default function ReportesPanel() {
                     <td className="py-2 text-neutral-400">{i + 1}</td>
                     <td className="py-2 font-medium">{f.nombre}</td>
                     <td className="py-2 text-right">${formatearMoneda(f.costoArs)}</td>
-                    <td className="py-2 text-right">${formatearMoneda(f.precioMinorista)}</td>
+                                        <td className="py-2 text-right">${formatearMoneda(f.precioMayorista)}</td>
                     <td className="py-2 text-right">
                       <span className={`font-semibold ${f.rentabilidad < 20 ? "text-red-600" : "text-green-700"}`}>
                         {f.rentabilidad.toFixed(1)}%
