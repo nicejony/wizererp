@@ -19,11 +19,11 @@ export default async function ProductosPage() {
 
   const tipoCambio = Number(tipoCambioData?.valor) || 1;
 
-  function calcularRentabilidad(v: any): number | null {
+    function calcularRentabilidad(v: any): number | null {
     const p = v.productos;
-    if (!p || !p.precio_minorista) return null;
+    if (!p || !p.precio_mayorista) return null;
     const costoArs = p.moneda_costo === "USD" ? Number(p.costo) * tipoCambio : Number(p.costo);
-    return ((Number(p.precio_minorista) - costoArs) / Number(p.precio_minorista)) * 100;
+    return ((Number(p.precio_mayorista) - costoArs) / Number(p.precio_mayorista)) * 100;
   }
 
   const grupos: Record<string, any[]> = {};
