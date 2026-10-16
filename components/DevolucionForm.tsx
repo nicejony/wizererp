@@ -21,6 +21,14 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
   const supabase = createClient();
   const [guardando, setGuardando] = useState(false);
 
+  const monedaDoc: "ARS" | "USD" = venta.moneda === "USD" ? "USD" : "ARS";
+  const tipoCambioDoc: number = Number(venta.tipo_cambio_aplicado) || 1;
+  const simboloMoneda = monedaDoc === "USD" ? "U$D" : "$";
+
+  function aMonedaDoc(montoArs: number): number {
+    return monedaDoc === "USD" ? montoArs / tipoCambioDoc : montoArs;
+  }
+
   const [cantidades, setCantidades] = useState<Record<string, number>>(
     Object.fromEntries(items.map((i) => [i.id, 0]))
   );
@@ -40,16 +48,19 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
     if (itemsADevolver.length === 0) return;
     setGuardando(true);
 
-        const { data: nota, error } = await supabase
+    const { data: nota, error } = await supabase
       .from("documentos")
       .insert({
         tipo: "nota_credito",
-        estado: "borrador", // se confirma recién después de cargar los items, para que el trigger de stock los vea
+        estado: "borrador",
         cliente_id: venta.cliente_id,
         documento_origen_id: venta.id,
+        forma_pago: venta.forma_pago,
         subtotal: totalDevolucion,
         total: totalDevolucion,
         observaciones: `Devolución de Venta #${venta.numero}`,
+        moneda: venta.moneda,
+        tipo_cambio_aplicado: venta.tipo_cambio_aplicado,
       })
       .select()
       .single();
@@ -77,7 +88,6 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
 
     await supabase.from("documento_items").insert(itemsPayload);
 
-    // Recién ahora confirmamos: así el trigger que repone el stock encuentra los items ya cargados
     await supabase.from("documentos").update({ estado: "confirmado" }).eq("id", nota.id);
 
     setGuardando(false);
@@ -88,7 +98,13 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
     <div className="card">
       <p className="mb-4 text-sm text-neutral-500">
         Indicá cuántas unidades de cada producto se devuelven. Dejá en 0 los que no corresponden. El stock se
-        repone automáticamente al confirmar.
+        repone automáticamente al confirmar
+        {venta.forma_pago === "Cuenta Corriente" && " y el saldo del cliente se reduce en la misma operación"}.
+        {monedaDoc === "USD" && (
+          <span className="ml-1 font-medium text-violet-700">
+            Esta venta fue en U$D — la devolución también se calcula en dólares (cotiz. ${formatearMoneda(tipoCambioDoc)}).
+          </span>
+        )}
       </p>
 
       <table className="mb-4 w-full text-sm">
@@ -97,7 +113,7 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
             <th className="py-2">Producto</th>
             <th className="py-2">Vendido</th>
             <th className="w-28 py-2">A devolver</th>
-            <th className="py-2 text-right">Precio</th>
+            <th className="py-2 text-right">Precio ({simboloMoneda})</th>
           </tr>
         </thead>
         <tbody>
@@ -117,7 +133,10 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
                   onChange={(e) => actualizar(i.id, Number(e.target.value), i.cantidad)}
                 />
               </td>
-                            <td className="py-2 text-right">${formatearMoneda(i.precio_unitario)}</td>
+              <td className="py-2 text-right">
+                {simboloMoneda}
+                {formatearMoneda(aMonedaDoc(i.precio_unitario))}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -126,7 +145,10 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
       <div className="mb-4 flex justify-end">
         <div className="text-right">
           <p className="text-sm text-neutral-500">Total a devolver</p>
-                    <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(totalDevolucion)}</p>
+          <p className="text-2xl font-semibold text-violet-700">
+            {simboloMoneda}
+            {formatearMoneda(aMonedaDoc(totalDevolucion))}
+          </p>
         </div>
       </div>
 
