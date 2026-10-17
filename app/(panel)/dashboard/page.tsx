@@ -15,7 +15,9 @@ export default async function DashboardPage() {
 
   const [
     { data: ventasHoy },
+    { data: devolucionesHoy },
     { data: ventasMes },
+    { data: devolucionesMes },
     { data: stockResumen },
     { data: pendientes },
     { data: embarques },
@@ -24,7 +26,9 @@ export default async function DashboardPage() {
     { data: clientes },
   ] = await Promise.all([
     supabase.from("documentos").select("total").eq("tipo", "venta").eq("fecha", hoy),
+    supabase.from("documentos").select("total").eq("tipo", "nota_credito").eq("fecha", hoy),
     supabase.from("documentos").select("total").eq("tipo", "venta").gte("fecha", inicioMes.toISOString().slice(0, 10)),
+    supabase.from("documentos").select("total").eq("tipo", "nota_credito").gte("fecha", inicioMes.toISOString().slice(0, 10)),
     supabase.from("variante_resumen").select("*").eq("activo", true),
     supabase.from("documentos").select("id").eq("tipo", "presupuesto").eq("estado", "confirmado"),
     supabase.from("embarques").select("*").eq("activo", true).order("fecha"),
@@ -37,12 +41,18 @@ export default async function DashboardPage() {
     supabase.from("clientes").select("id"),
   ]);
 
-  const totalHoy = (ventasHoy ?? []).reduce((s, d) => s + Number(d.total), 0);
-  const totalMes = (ventasMes ?? []).reduce((s, d) => s + Number(d.total), 0);
+  const totalHoy =
+    (ventasHoy ?? []).reduce((s, d) => s + Number(d.total), 0) -
+    (devolucionesHoy ?? []).reduce((s, d) => s + Number(d.total), 0);
+  const totalMes =
+    (ventasMes ?? []).reduce((s, d) => s + Number(d.total), 0) -
+    (devolucionesMes ?? []).reduce((s, d) => s + Number(d.total), 0);
 
+  // Stock: sin stock vs. bajo mínimo
   const sinStock = (stockResumen ?? []).filter((v: any) => Number(v.stock_total) === 0);
   const bajoMinimo = (stockResumen ?? []).filter((v: any) => Number(v.stock_total) > 0 && Number(v.stock_total) <= Number(v.stock_minimo));
 
+  // Clientes con deuda vencida (>30 días)
   const saldos: Record<string, number> = {};
   const cargoMasViejo: Record<string, string> = {};
   for (const m of movimientosCuenta ?? []) {
@@ -60,6 +70,7 @@ export default async function DashboardPage() {
     return saldo > 0 && dias > 30;
   });
 
+  // Productos sin rotación (sin ventas o hace más de 30 días)
   const idsConStock = [...new Set((stockResumen ?? []).filter((v: any) => Number(v.stock_total) > 0).map((v: any) => v.producto_id))];
   const ultimaVentaGlobal: Record<string, string> = {};
   const { data: itemsVentaTodos } = idsConStock.length
@@ -81,6 +92,7 @@ export default async function DashboardPage() {
     return dias > 30;
   });
 
+  // Top vendidos (últimos 90 días)
   const topMap: Record<string, { cantidad: number; monto: number }> = {};
   for (const item of (itemsVenta ?? []) as any[]) {
     const nombre = item.producto_variantes?.productos?.nombre ?? "—";
@@ -92,7 +104,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
-            <h1 className="mb-6 flex items-center gap-2 text-2xl font-semibold">
+      <h1 className="mb-6 flex items-center gap-2 text-2xl font-semibold">
         <LayoutDashboard className="text-violet-600" size={22} /> Dashboard
       </h1>
 
