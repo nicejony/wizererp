@@ -20,8 +20,17 @@ interface ProductoLista {
   colores: string[];
 }
 
+interface FilaPedido {
+  key: string;
+  productoId: string;
+  codigo: string;
+  nombre: string;
+  color: string | null;
+  categoriaNombre: string;
+}
+
 type TipoPrecioLista = "mayorista" | "minorista" | "ambos";
-type Presentacion = "lista" | "catalogo";
+type Presentacion = "lista" | "catalogo" | "pedido";
 type Orden = "rubro_nombre" | "nombre" | "codigo";
 
 export default function ListasPreciosPanel() {
@@ -48,6 +57,8 @@ export default function ListasPreciosPanel() {
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [misListas, setMisListas] = useState<{ id: string; nombre: string; configuracion: any }[]>([]);
   const [guardandoLista, setGuardandoLista] = useState(false);
+
+  const [cantidadesPedido, setCantidadesPedido] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function cargar() {
@@ -84,36 +95,7 @@ export default function ListasPreciosPanel() {
     cargar();
   }, []);
 
-  const resultadosFiltrados = useMemo(() => {
-    return productos
-      .filter((p) => (soloActivos ? p.activo : true))
-      .filter((p) => (rubrosSel.size === 0 ? true : p.categoria_id && rubrosSel.has(p.categoria_id)))
-      .filter((p) => {
-        if (!busqueda.trim()) return true;
-        const q = busqueda.toLowerCase();
-        return p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q);
-      });
-  }, [productos, soloActivos, rubrosSel, busqueda]);
-
-  const productosParaLista = useMemo(() => {
-    const elegidos = productos.filter((p) => seleccionados.has(p.id));
-    const ordenados = [...elegidos].sort((a, b) => {
-      if (orden === "codigo") return a.codigo.localeCompare(b.codigo);
-      if (orden === "nombre") return a.nombre.localeCompare(b.nombre);
-            const esFusiblesA = a.categoriaNombre.toLowerCase() === "fusibles";
-      const esFusiblesB = b.categoriaNombre.toLowerCase() === "fusibles";
-      if (esFusiblesA && !esFusiblesB) return 1;
-      if (!esFusiblesA && esFusiblesB) return -1;
-      const rubroCmp = a.categoriaNombre.localeCompare(b.categoriaNombre);
-      return rubroCmp !== 0 ? rubroCmp : a.nombre.localeCompare(b.nombre);
-    });
-    return ordenados;
-  }, [productos, seleccionados, orden]);
-
-  const agrupadoPorRubro = orden === "rubro_nombre";
-  const mostrarRubroSuelto = mostrarRubro && !agrupadoPorRubro;
-
-    function calcularFiltrados(soloAct: boolean, rubros: Set<string>, query: string) {
+  function calcularFiltrados(soloAct: boolean, rubros: Set<string>, query: string) {
     return productos
       .filter((p) => (soloAct ? p.activo : true))
       .filter((p) => (rubros.size === 0 ? true : p.categoria_id && rubros.has(p.categoria_id)))
@@ -123,6 +105,43 @@ export default function ListasPreciosPanel() {
         return p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q);
       });
   }
+
+  const resultadosFiltrados = useMemo(
+    () => calcularFiltrados(soloActivos, rubrosSel, busqueda),
+    [productos, soloActivos, rubrosSel, busqueda]
+  );
+
+  const productosParaLista = useMemo(() => {
+    const elegidos = productos.filter((p) => seleccionados.has(p.id));
+    const ordenados = [...elegidos].sort((a, b) => {
+      if (orden === "codigo") return a.codigo.localeCompare(b.codigo);
+      if (orden === "nombre") return a.nombre.localeCompare(b.nombre);
+      const esFusiblesA = a.categoriaNombre.toLowerCase() === "fusibles";
+      const esFusiblesB = b.categoriaNombre.toLowerCase() === "fusibles";
+      if (esFusiblesA && !esFusiblesB) return 1;
+      if (!esFusiblesA && esFusiblesB) return -1;
+      const rubroCmp = a.categoriaNombre.localeCompare(b.categoriaNombre);
+      return rubroCmp !== 0 ? rubroCmp : a.nombre.localeCompare(b.nombre);
+    });
+    return ordenados;
+  }, [productos, seleccionados, orden]);
+
+  const filasPedido = useMemo((): FilaPedido[] => {
+    const filas: FilaPedido[] = [];
+    for (const p of productosParaLista) {
+      if (p.colores.length === 0) {
+        filas.push({ key: `${p.id}__sin-color`, productoId: p.id, codigo: p.codigo, nombre: p.nombre, color: null, categoriaNombre: p.categoriaNombre });
+      } else {
+        for (const color of p.colores) {
+          filas.push({ key: `${p.id}__${color}`, productoId: p.id, codigo: p.codigo, nombre: p.nombre, color, categoriaNombre: p.categoriaNombre });
+        }
+      }
+    }
+    return filas;
+  }, [productosParaLista]);
+
+  const agrupadoPorRubro = orden === "rubro_nombre";
+  const mostrarRubroSuelto = mostrarRubro && !agrupadoPorRubro;
 
   function toggleRubro(id: string) {
     setRubrosSel((prev) => {
@@ -272,17 +291,12 @@ export default function ListasPreciosPanel() {
     y += 6;
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Precios actualizados al: ${new Date().toLocaleDateString("es-AR")}`, margen, y);
-    y += 10;
-
-    const imagenesCache: Record<string, string | null> = {};
-    if (mostrarFoto) {
-      for (const p of productosParaLista) {
-        if (p.foto_url && !(p.id in imagenesCache)) {
-          imagenesCache[p.id] = await imagenABase64(p.foto_url);
-        }
-      }
+    if (presentacion === "pedido") {
+      doc.text("Indique la cantidad que desea de cada color y envíenos este formulario completo.", margen, y);
+    } else {
+      doc.text(`Precios actualizados al: ${new Date().toLocaleDateString("es-AR")}`, margen, y);
     }
+    y += 10;
 
     function tituloRubro(nombreRubro: string) {
       if (y + 10 > 280) {
@@ -296,154 +310,211 @@ export default function ListasPreciosPanel() {
       y += 6;
     }
 
-    if (presentacion === "lista") {
-      const colFoto = margen;
-      const colCodigo = margen + (mostrarFoto ? 16 : 0);
-      const colNombre = colCodigo + (mostrarCodigo ? 24 : 0);
-      const colPrecioX = margen + anchoUtil;
+    if (presentacion === "pedido") {
+      const colCodigo = margen;
+      const colProducto = colCodigo + 24;
+      const colColor = margen + anchoUtil - 55;
+      const colCantidad = margen + anchoUtil - 25;
 
-      function encabezado() {
+      function encabezadoPedido() {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(90, 90, 90);
-        if (mostrarCodigo) doc.text("Código", colCodigo, y);
-        doc.text("Producto", colNombre, y);
-        const labelPrecio = tipoPrecio === "ambos" ? "May. / Min." : tipoPrecio === "mayorista" ? "Mayorista" : "Minorista";
-        doc.text(labelPrecio, colPrecioX, y, { align: "right" });
+        doc.text("Código", colCodigo, y);
+        doc.text("Producto", colProducto, y);
+        doc.text("Color", colColor, y);
+        doc.text("Cantidad", colCantidad, y);
         y += 2;
         doc.setDrawColor(220, 220, 220);
         doc.line(margen, y, margen + anchoUtil, y);
         y += 5;
       }
-      encabezado();
+      encabezadoPedido();
 
       let rubroAnterior: string | null = null;
-
-      for (const p of productosParaLista) {
-        if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
-          tituloRubro(p.categoriaNombre);
-          encabezado();
-          rubroAnterior = p.categoriaNombre;
+      for (const f of filasPedido) {
+        if (agrupadoPorRubro && f.categoriaNombre !== rubroAnterior) {
+          tituloRubro(f.categoriaNombre);
+          encabezadoPedido();
+          rubroAnterior = f.categoriaNombre;
         }
 
-        const alturaFila = mostrarFoto ? 14 : 7;
-        if (y + alturaFila > 280) {
+        if (y + 8 > 280) {
           doc.addPage();
           y = 20;
-          encabezado();
-        }
-
-        if (mostrarFoto) {
-          const img = imagenesCache[p.id];
-          if (img) {
-            try {
-              doc.addImage(img, "JPEG", colFoto, y - 4, 12, 12);
-            } catch {}
-          }
+          encabezadoPedido();
         }
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(40, 40, 40);
-        if (mostrarCodigo) doc.text(p.codigo, colCodigo, y);
+        doc.text(f.codigo, colCodigo, y);
+        doc.text(doc.splitTextToSize(f.nombre, colColor - colProducto - 3), colProducto, y);
+        doc.text(f.color ?? "—", colColor, y);
+        doc.setDrawColor(180, 180, 180);
+        doc.rect(colCantidad, y - 4, 18, 6);
 
-        const nombreTexto =
-          p.nombre + (p.colores.length ? ` (${p.colores.join(", ")})` : "") + (mostrarRubroSuelto ? ` — ${p.categoriaNombre}` : "");
-        const lineas = doc.splitTextToSize(nombreTexto, colPrecioX - colNombre - 25);
-        doc.text(lineas, colNombre, y);
-
-        let precioTexto = "";
-        if (tipoPrecio === "mayorista") precioTexto = `$${formatearMoneda(p.precio_mayorista)}`;
-        else if (tipoPrecio === "minorista") precioTexto = `$${formatearMoneda(p.precio_minorista)}`;
-        else precioTexto = `$${formatearMoneda(p.precio_mayorista)} / $${formatearMoneda(p.precio_minorista)}`;
-        doc.text(precioTexto, colPrecioX, y, { align: "right" });
-
-        y += alturaFila;
+        y += 8;
       }
     } else {
-      const colAncho = anchoUtil / 2 - 4;
-      const alturaImagen = mostrarFoto ? colAncho * 0.75 : 0;
-      let x = margen;
-      let colIdx = 0;
-      let filaMaxY = y;
-      let rubroAnterior: string | null = null;
+      const imagenesCache: Record<string, string | null> = {};
+      if (mostrarFoto) {
+        for (const p of productosParaLista) {
+          if (p.foto_url && !(p.id in imagenesCache)) {
+            imagenesCache[p.id] = await imagenABase64(p.foto_url);
+          }
+        }
+      }
 
-      for (const p of productosParaLista) {
-        if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
-          if (colIdx !== 0) {
-            y = filaMaxY + 4;
+      if (presentacion === "lista") {
+        const colFoto = margen;
+        const colCodigo = margen + (mostrarFoto ? 16 : 0);
+        const colNombre = colCodigo + (mostrarCodigo ? 24 : 0);
+        const colPrecioX = margen + anchoUtil;
+
+        function encabezado() {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(90, 90, 90);
+          if (mostrarCodigo) doc.text("Código", colCodigo, y);
+          doc.text("Producto", colNombre, y);
+          const labelPrecio = tipoPrecio === "ambos" ? "May. / Min." : tipoPrecio === "mayorista" ? "Mayorista" : "Minorista";
+          doc.text(labelPrecio, colPrecioX, y, { align: "right" });
+          y += 2;
+          doc.setDrawColor(220, 220, 220);
+          doc.line(margen, y, margen + anchoUtil, y);
+          y += 5;
+        }
+        encabezado();
+
+        let rubroAnterior: string | null = null;
+
+        for (const p of productosParaLista) {
+          if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
+            tituloRubro(p.categoriaNombre);
+            encabezado();
+            rubroAnterior = p.categoriaNombre;
+          }
+
+          const alturaFila = mostrarFoto ? 14 : 7;
+          if (y + alturaFila > 280) {
+            doc.addPage();
+            y = 20;
+            encabezado();
+          }
+
+          if (mostrarFoto) {
+            const img = imagenesCache[p.id];
+            if (img) {
+              try {
+                doc.addImage(img, "JPEG", colFoto, y - 4, 12, 12);
+              } catch {}
+            }
+          }
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(40, 40, 40);
+          if (mostrarCodigo) doc.text(p.codigo, colCodigo, y);
+
+          const nombreTexto =
+            p.nombre + (p.colores.length ? ` (${p.colores.join(", ")})` : "") + (mostrarRubroSuelto ? ` — ${p.categoriaNombre}` : "");
+          const lineas = doc.splitTextToSize(nombreTexto, colPrecioX - colNombre - 25);
+          doc.text(lineas, colNombre, y);
+
+          let precioTexto = "";
+          if (tipoPrecio === "mayorista") precioTexto = `$${formatearMoneda(p.precio_mayorista)}`;
+          else if (tipoPrecio === "minorista") precioTexto = `$${formatearMoneda(p.precio_minorista)}`;
+          else precioTexto = `$${formatearMoneda(p.precio_mayorista)} / $${formatearMoneda(p.precio_minorista)}`;
+          doc.text(precioTexto, colPrecioX, y, { align: "right" });
+
+          y += alturaFila;
+        }
+      } else {
+        const colAncho = anchoUtil / 2 - 4;
+        const alturaImagen = mostrarFoto ? colAncho * 0.75 : 0;
+        let x = margen;
+        let colIdx = 0;
+        let filaMaxY = y;
+        let rubroAnterior: string | null = null;
+
+        for (const p of productosParaLista) {
+          if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
+            if (colIdx !== 0) {
+              y = filaMaxY + 4;
+              colIdx = 0;
+              x = margen;
+            }
+            tituloRubro(p.categoriaNombre);
+            filaMaxY = y;
+            rubroAnterior = p.categoriaNombre;
+          }
+
+          const alturaEstimada =
+            alturaImagen + 5 + (p.colores.length ? 4 : 0) + (mostrarCodigo ? 4 : 0) + (mostrarRubroSuelto ? 4 : 0) + 6 + 4;
+          if (colIdx === 0 && y + alturaEstimada > 280) {
+            doc.addPage();
+            y = 20;
+            filaMaxY = y;
+          }
+
+          const cardY = y;
+          if (mostrarFoto) {
+            const img = imagenesCache[p.id];
+            if (img) {
+              try {
+                doc.addImage(img, "JPEG", x, cardY, colAncho, alturaImagen);
+              } catch {}
+            } else {
+              doc.setDrawColor(230, 230, 230);
+              doc.rect(x, cardY, colAncho, alturaImagen);
+            }
+          }
+          let textoY = cardY + (mostrarFoto ? alturaImagen + 5 : 5);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(30, 30, 30);
+          doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
+          textoY += 5;
+          if (p.colores.length) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(120, 120, 120);
+            doc.text(p.colores.join(", "), x, textoY);
+            textoY += 4;
+          }
+          if (mostrarCodigo) {
+            doc.setFontSize(7);
+            doc.text(p.codigo, x, textoY);
+            textoY += 4;
+          }
+          if (mostrarRubroSuelto) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7);
+            doc.setTextColor(150, 150, 150);
+            doc.text(p.categoriaNombre, x, textoY);
+            textoY += 4;
+          }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(124, 58, 237);
+          let precioTexto = "";
+          if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
+          else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
+          else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
+          doc.text(precioTexto, x, textoY);
+          textoY += 6;
+
+          filaMaxY = Math.max(filaMaxY, textoY);
+
+          colIdx++;
+          if (colIdx >= 2) {
             colIdx = 0;
             x = margen;
-          }
-          tituloRubro(p.categoriaNombre);
-          filaMaxY = y;
-          rubroAnterior = p.categoriaNombre;
-        }
-
-        const alturaEstimada =
-          alturaImagen + 5 + (p.colores.length ? 4 : 0) + (mostrarCodigo ? 4 : 0) + (mostrarRubroSuelto ? 4 : 0) + 6 + 4;
-        if (colIdx === 0 && y + alturaEstimada > 280) {
-          doc.addPage();
-          y = 20;
-          filaMaxY = y;
-        }
-
-        const cardY = y;
-        if (mostrarFoto) {
-          const img = imagenesCache[p.id];
-          if (img) {
-            try {
-              doc.addImage(img, "JPEG", x, cardY, colAncho, alturaImagen);
-            } catch {}
+            y = filaMaxY + 4;
           } else {
-            doc.setDrawColor(230, 230, 230);
-            doc.rect(x, cardY, colAncho, alturaImagen);
+            x = margen + colAncho + 8;
           }
-        }
-        let textoY = cardY + (mostrarFoto ? alturaImagen + 5 : 5);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(30, 30, 30);
-        doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
-        textoY += 5;
-        if (p.colores.length) {
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(8);
-          doc.setTextColor(120, 120, 120);
-          doc.text(p.colores.join(", "), x, textoY);
-          textoY += 4;
-        }
-        if (mostrarCodigo) {
-          doc.setFontSize(7);
-          doc.text(p.codigo, x, textoY);
-          textoY += 4;
-        }
-        if (mostrarRubroSuelto) {
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(7);
-          doc.setTextColor(150, 150, 150);
-          doc.text(p.categoriaNombre, x, textoY);
-          textoY += 4;
-        }
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(124, 58, 237);
-        let precioTexto = "";
-        if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
-        else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
-        else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
-        doc.text(precioTexto, x, textoY);
-        textoY += 6;
-
-        filaMaxY = Math.max(filaMaxY, textoY);
-
-        colIdx++;
-        if (colIdx >= 2) {
-          colIdx = 0;
-          x = margen;
-          y = filaMaxY + 4;
-        } else {
-          x = margen + colAncho + 8;
         }
       }
     }
@@ -474,6 +545,11 @@ export default function ListasPreciosPanel() {
     }
   }
 
+  const totalUnidadesPedido = useMemo(
+    () => Object.values(cantidadesPedido).reduce((s, v) => s + (Number(v) || 0), 0),
+    [cantidadesPedido]
+  );
+
   if (cargando) return <p className="text-sm text-neutral-400">Cargando catálogo...</p>;
 
   return (
@@ -499,10 +575,70 @@ export default function ListasPreciosPanel() {
             <div className="mb-6 border-b border-neutral-100 pb-4">
               <p className="text-xl font-bold text-violet-700">WIZER BIKES</p>
               <p className="text-lg font-semibold">{titulo || "Lista de precios Wizer"}</p>
-              <p className="text-xs text-neutral-400">Precios actualizados al: {new Date().toLocaleDateString("es-AR")}</p>
+              {presentacion === "pedido" ? (
+                <p className="text-xs text-neutral-400">Indique la cantidad que desea de cada color.</p>
+              ) : (
+                <p className="text-xs text-neutral-400">Precios actualizados al: {new Date().toLocaleDateString("es-AR")}</p>
+              )}
             </div>
 
-            {presentacion === "lista" ? (
+            {presentacion === "pedido" ? (
+              (() => {
+                let rubroAnterior: string | null = null;
+                return (
+                  <>
+                    <table className="w-full text-sm">
+                      <thead className="border-b border-neutral-100 text-left text-neutral-500">
+                        <tr>
+                          <th className="py-2">Código</th>
+                          <th className="py-2">Producto</th>
+                          <th className="py-2">Color</th>
+                          <th className="w-24 py-2 text-right">Cantidad</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filasPedido.map((f) => {
+                          const mostrarHeader = agrupadoPorRubro && f.categoriaNombre !== rubroAnterior;
+                          rubroAnterior = f.categoriaNombre;
+                          return (
+                            <Fragment key={f.key}>
+                              {mostrarHeader && (
+                                <tr className="bg-violet-50">
+                                  <td colSpan={4} className="px-1 py-2 text-xs font-bold uppercase tracking-wide text-violet-700">
+                                    {f.categoriaNombre}
+                                  </td>
+                                </tr>
+                              )}
+                              <tr className="border-b border-neutral-50">
+                                <td className="py-2 font-mono text-xs">{f.codigo}</td>
+                                <td className="py-2 font-medium">{f.nombre}</td>
+                                <td className="py-2 text-neutral-500">{f.color ?? "—"}</td>
+                                <td className="py-2 text-right">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    className="input no-spinner w-20 py-1 text-right no-print"
+                                    placeholder="0"
+                                    value={cantidadesPedido[f.key] ?? ""}
+                                    onChange={(e) => setCantidadesPedido((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                                  />
+                                  <span className="print-only">{cantidadesPedido[f.key] || "—"}</span>
+                                </td>
+                              </tr>
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {totalUnidadesPedido > 0 && (
+                      <p className="no-print mt-4 text-right text-sm font-medium text-neutral-500">
+                        Total anotado: <span className="text-violet-700">{totalUnidadesPedido} unidades</span>
+                      </p>
+                    )}
+                  </>
+                );
+              })()
+            ) : presentacion === "lista" ? (
               (() => {
                 let rubroAnterior: string | null = null;
                 const colSpanTotal =
@@ -647,23 +783,25 @@ export default function ListasPreciosPanel() {
             )}
           </div>
 
-          <div className="card">
-            <p className="mb-3 text-sm font-medium text-neutral-500">Tipo de precio</p>
-            <div className="flex gap-4 text-sm">
-              {(["mayorista", "minorista", "ambos"] as TipoPrecioLista[]).map((t) => (
-                <label key={t} className="flex items-center gap-2">
-                  <input type="radio" checked={tipoPrecio === t} onChange={() => setTipoPrecio(t)} />
-                  <span className="capitalize">{t}</span>
-                </label>
-              ))}
+          {presentacion !== "pedido" && (
+            <div className="card">
+              <p className="mb-3 text-sm font-medium text-neutral-500">Tipo de precio</p>
+              <div className="flex gap-4 text-sm">
+                {(["mayorista", "minorista", "ambos"] as TipoPrecioLista[]).map((t) => (
+                  <label key={t} className="flex items-center gap-2">
+                    <input type="radio" checked={tipoPrecio === t} onChange={() => setTipoPrecio(t)} />
+                    <span className="capitalize">{t}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="card">
             <p className="mb-3 text-sm font-medium text-neutral-500">Rubros</p>
             <div className="flex flex-wrap gap-2">
               <button
-                                onClick={limpiarRubros}
+                onClick={limpiarRubros}
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                   rubrosSel.size === 0 ? "bg-violet-600 text-white" : "bg-neutral-100 text-neutral-600"
                 }`}
@@ -696,7 +834,7 @@ export default function ListasPreciosPanel() {
             </label>
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-2">
-                               <input type="radio" checked={soloActivos} onChange={() => cambiarSoloActivos(true)} />
+                <input type="radio" checked={soloActivos} onChange={() => cambiarSoloActivos(true)} />
                 Solo productos activos
               </label>
               <label className="flex items-center gap-2">
@@ -739,7 +877,7 @@ export default function ListasPreciosPanel() {
 
           <div className="card space-y-3">
             <p className="text-sm font-medium text-neutral-500">Presentación</p>
-            <div className="flex gap-4 text-sm">
+            <div className="flex flex-wrap gap-4 text-sm">
               <label className="flex items-center gap-2">
                 <input type="radio" checked={presentacion === "lista"} onChange={() => setPresentacion("lista")} />
                 Lista de precios (compacta)
@@ -748,22 +886,28 @@ export default function ListasPreciosPanel() {
                 <input type="radio" checked={presentacion === "catalogo"} onChange={() => setPresentacion("catalogo")} />
                 Catálogo comercial (con fotos)
               </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={presentacion === "pedido"} onChange={() => setPresentacion("pedido")} />
+                Planilla de pedido (sin precios, para el cliente)
+              </label>
             </div>
 
-            <div className="flex flex-wrap gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={mostrarFoto} onChange={(e) => setMostrarFoto(e.target.checked)} />
-                Mostrar foto
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={mostrarCodigo} onChange={(e) => setMostrarCodigo(e.target.checked)} />
-                Mostrar código
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={mostrarRubro} onChange={(e) => setMostrarRubro(e.target.checked)} />
-                Mostrar rubro
-              </label>
-            </div>
+            {presentacion !== "pedido" && (
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={mostrarFoto} onChange={(e) => setMostrarFoto(e.target.checked)} />
+                  Mostrar foto
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={mostrarCodigo} onChange={(e) => setMostrarCodigo(e.target.checked)} />
+                  Mostrar código
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={mostrarRubro} onChange={(e) => setMostrarRubro(e.target.checked)} />
+                  Mostrar rubro
+                </label>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label>
@@ -776,7 +920,12 @@ export default function ListasPreciosPanel() {
               </label>
               <label>
                 <span className="mb-1 block text-xs text-neutral-500">Título</span>
-                <input className="input" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Lista de precios Wizer" />
+                <input
+                  className="input"
+                  value={titulo}
+                  onChange={(e) => setTitulo(e.target.value)}
+                  placeholder={presentacion === "pedido" ? "Hoja de pedido Wizer" : "Lista de precios Wizer"}
+                />
               </label>
             </div>
           </div>
