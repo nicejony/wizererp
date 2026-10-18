@@ -20,15 +20,6 @@ interface ProductoLista {
   colores: string[];
 }
 
-interface FilaPedido {
-  key: string;
-  productoId: string;
-  codigo: string;
-  nombre: string;
-  color: string | null;
-  categoriaNombre: string;
-}
-
 type TipoPrecioLista = "mayorista" | "minorista" | "ambos";
 type Presentacion = "lista" | "catalogo" | "pedido";
 type Orden = "rubro_nombre" | "nombre" | "codigo";
@@ -125,20 +116,6 @@ export default function ListasPreciosPanel() {
     });
     return ordenados;
   }, [productos, seleccionados, orden]);
-
-  const filasPedido = useMemo((): FilaPedido[] => {
-    const filas: FilaPedido[] = [];
-    for (const p of productosParaLista) {
-      if (p.colores.length === 0) {
-        filas.push({ key: `${p.id}__sin-color`, productoId: p.id, codigo: p.codigo, nombre: p.nombre, color: null, categoriaNombre: p.categoriaNombre });
-      } else {
-        for (const color of p.colores) {
-          filas.push({ key: `${p.id}__${color}`, productoId: p.id, codigo: p.codigo, nombre: p.nombre, color, categoriaNombre: p.categoriaNombre });
-        }
-      }
-    }
-    return filas;
-  }, [productosParaLista]);
 
   const agrupadoPorRubro = orden === "rubro_nombre";
   const mostrarRubroSuelto = mostrarRubro && !agrupadoPorRubro;
@@ -310,211 +287,220 @@ export default function ListasPreciosPanel() {
       y += 6;
     }
 
-    if (presentacion === "pedido") {
-      const colCodigo = margen;
-      const colProducto = colCodigo + 24;
-      const colColor = margen + anchoUtil - 55;
-      const colCantidad = margen + anchoUtil - 25;
+    const imagenesCache: Record<string, string | null> = {};
+    if (mostrarFoto && (presentacion === "catalogo" || presentacion === "pedido")) {
+      for (const p of productosParaLista) {
+        if (p.foto_url && !(p.id in imagenesCache)) {
+          imagenesCache[p.id] = await imagenABase64(p.foto_url);
+        }
+      }
+    }
 
-      function encabezadoPedido() {
+    if (presentacion === "pedido") {
+      const imgSize = 20;
+      let rubroAnterior: string | null = null;
+
+      for (const p of productosParaLista) {
+        if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
+          tituloRubro(p.categoriaNombre);
+          rubroAnterior = p.categoriaNombre;
+        }
+
+        const colores = p.colores.length ? p.colores : [null];
+        const alturaBloque = Math.max(mostrarFoto ? imgSize : 0, 10) + colores.length * 6 + 6;
+
+        if (y + alturaBloque > 280) {
+          doc.addPage();
+          y = 20;
+        }
+
+        const bloqueY = y;
+        const textoX = margen + (mostrarFoto ? imgSize + 5 : 0);
+
+        if (mostrarFoto) {
+          const img = imagenesCache[p.id];
+          if (img) {
+            try {
+              doc.addImage(img, "JPEG", margen, bloqueY, imgSize, imgSize);
+            } catch {}
+          } else {
+            doc.setDrawColor(230, 230, 230);
+            doc.rect(margen, bloqueY, imgSize, imgSize);
+            doc.setFontSize(6);
+            doc.setTextColor(190, 190, 190);
+            doc.text("Sin foto", margen + imgSize / 2, bloqueY + imgSize / 2, { align: "center" });
+          }
+        }
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(30, 30, 30);
+        doc.text(doc.splitTextToSize(p.nombre, anchoUtil - (textoX - margen)), textoX, bloqueY + 4);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(140, 140, 140);
+        doc.text(p.codigo, textoX, bloqueY + 9);
+
+        let filaY = bloqueY + 14;
+        doc.setFontSize(9);
+        for (const color of colores) {
+          doc.setTextColor(60, 60, 60);
+          doc.text(color ?? "Cantidad", textoX, filaY);
+          doc.setDrawColor(180, 180, 180);
+          doc.rect(textoX + 55, filaY - 4, 18, 6);
+          filaY += 6;
+        }
+
+        y = bloqueY + alturaBloque;
+      }
+    } else if (presentacion === "lista") {
+      const colFoto = margen;
+      const colCodigo = margen + (mostrarFoto ? 16 : 0);
+      const colNombre = colCodigo + (mostrarCodigo ? 24 : 0);
+      const colPrecioX = margen + anchoUtil;
+
+      function encabezado() {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(90, 90, 90);
-        doc.text("Código", colCodigo, y);
-        doc.text("Producto", colProducto, y);
-        doc.text("Color", colColor, y);
-        doc.text("Cantidad", colCantidad, y);
+        if (mostrarCodigo) doc.text("Código", colCodigo, y);
+        doc.text("Producto", colNombre, y);
+        const labelPrecio = tipoPrecio === "ambos" ? "May. / Min." : tipoPrecio === "mayorista" ? "Mayorista" : "Minorista";
+        doc.text(labelPrecio, colPrecioX, y, { align: "right" });
         y += 2;
         doc.setDrawColor(220, 220, 220);
         doc.line(margen, y, margen + anchoUtil, y);
         y += 5;
       }
-      encabezadoPedido();
+      encabezado();
 
       let rubroAnterior: string | null = null;
-      for (const f of filasPedido) {
-        if (agrupadoPorRubro && f.categoriaNombre !== rubroAnterior) {
-          tituloRubro(f.categoriaNombre);
-          encabezadoPedido();
-          rubroAnterior = f.categoriaNombre;
+
+      for (const p of productosParaLista) {
+        if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
+          tituloRubro(p.categoriaNombre);
+          encabezado();
+          rubroAnterior = p.categoriaNombre;
         }
 
-        if (y + 8 > 280) {
+        const alturaFila = mostrarFoto ? 14 : 7;
+        if (y + alturaFila > 280) {
           doc.addPage();
           y = 20;
-          encabezadoPedido();
+          encabezado();
+        }
+
+        if (mostrarFoto) {
+          const img = imagenesCache[p.id];
+          if (img) {
+            try {
+              doc.addImage(img, "JPEG", colFoto, y - 4, 12, 12);
+            } catch {}
+          }
         }
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(40, 40, 40);
-        doc.text(f.codigo, colCodigo, y);
-        doc.text(doc.splitTextToSize(f.nombre, colColor - colProducto - 3), colProducto, y);
-        doc.text(f.color ?? "—", colColor, y);
-        doc.setDrawColor(180, 180, 180);
-        doc.rect(colCantidad, y - 4, 18, 6);
+        if (mostrarCodigo) doc.text(p.codigo, colCodigo, y);
 
-        y += 8;
+        const nombreTexto =
+          p.nombre + (p.colores.length ? ` (${p.colores.join(", ")})` : "") + (mostrarRubroSuelto ? ` — ${p.categoriaNombre}` : "");
+        const lineas = doc.splitTextToSize(nombreTexto, colPrecioX - colNombre - 25);
+        doc.text(lineas, colNombre, y);
+
+        let precioTexto = "";
+        if (tipoPrecio === "mayorista") precioTexto = `$${formatearMoneda(p.precio_mayorista)}`;
+        else if (tipoPrecio === "minorista") precioTexto = `$${formatearMoneda(p.precio_minorista)}`;
+        else precioTexto = `$${formatearMoneda(p.precio_mayorista)} / $${formatearMoneda(p.precio_minorista)}`;
+        doc.text(precioTexto, colPrecioX, y, { align: "right" });
+
+        y += alturaFila;
       }
     } else {
-      const imagenesCache: Record<string, string | null> = {};
-      if (mostrarFoto) {
-        for (const p of productosParaLista) {
-          if (p.foto_url && !(p.id in imagenesCache)) {
-            imagenesCache[p.id] = await imagenABase64(p.foto_url);
-          }
-        }
-      }
+      const colAncho = anchoUtil / 2 - 4;
+      const alturaImagen = mostrarFoto ? colAncho * 0.75 : 0;
+      let x = margen;
+      let colIdx = 0;
+      let filaMaxY = y;
+      let rubroAnterior: string | null = null;
 
-      if (presentacion === "lista") {
-        const colFoto = margen;
-        const colCodigo = margen + (mostrarFoto ? 16 : 0);
-        const colNombre = colCodigo + (mostrarCodigo ? 24 : 0);
-        const colPrecioX = margen + anchoUtil;
-
-        function encabezado() {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(90, 90, 90);
-          if (mostrarCodigo) doc.text("Código", colCodigo, y);
-          doc.text("Producto", colNombre, y);
-          const labelPrecio = tipoPrecio === "ambos" ? "May. / Min." : tipoPrecio === "mayorista" ? "Mayorista" : "Minorista";
-          doc.text(labelPrecio, colPrecioX, y, { align: "right" });
-          y += 2;
-          doc.setDrawColor(220, 220, 220);
-          doc.line(margen, y, margen + anchoUtil, y);
-          y += 5;
-        }
-        encabezado();
-
-        let rubroAnterior: string | null = null;
-
-        for (const p of productosParaLista) {
-          if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
-            tituloRubro(p.categoriaNombre);
-            encabezado();
-            rubroAnterior = p.categoriaNombre;
-          }
-
-          const alturaFila = mostrarFoto ? 14 : 7;
-          if (y + alturaFila > 280) {
-            doc.addPage();
-            y = 20;
-            encabezado();
-          }
-
-          if (mostrarFoto) {
-            const img = imagenesCache[p.id];
-            if (img) {
-              try {
-                doc.addImage(img, "JPEG", colFoto, y - 4, 12, 12);
-              } catch {}
-            }
-          }
-
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9);
-          doc.setTextColor(40, 40, 40);
-          if (mostrarCodigo) doc.text(p.codigo, colCodigo, y);
-
-          const nombreTexto =
-            p.nombre + (p.colores.length ? ` (${p.colores.join(", ")})` : "") + (mostrarRubroSuelto ? ` — ${p.categoriaNombre}` : "");
-          const lineas = doc.splitTextToSize(nombreTexto, colPrecioX - colNombre - 25);
-          doc.text(lineas, colNombre, y);
-
-          let precioTexto = "";
-          if (tipoPrecio === "mayorista") precioTexto = `$${formatearMoneda(p.precio_mayorista)}`;
-          else if (tipoPrecio === "minorista") precioTexto = `$${formatearMoneda(p.precio_minorista)}`;
-          else precioTexto = `$${formatearMoneda(p.precio_mayorista)} / $${formatearMoneda(p.precio_minorista)}`;
-          doc.text(precioTexto, colPrecioX, y, { align: "right" });
-
-          y += alturaFila;
-        }
-      } else {
-        const colAncho = anchoUtil / 2 - 4;
-        const alturaImagen = mostrarFoto ? colAncho * 0.75 : 0;
-        let x = margen;
-        let colIdx = 0;
-        let filaMaxY = y;
-        let rubroAnterior: string | null = null;
-
-        for (const p of productosParaLista) {
-          if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
-            if (colIdx !== 0) {
-              y = filaMaxY + 4;
-              colIdx = 0;
-              x = margen;
-            }
-            tituloRubro(p.categoriaNombre);
-            filaMaxY = y;
-            rubroAnterior = p.categoriaNombre;
-          }
-
-          const alturaEstimada =
-            alturaImagen + 5 + (p.colores.length ? 4 : 0) + (mostrarCodigo ? 4 : 0) + (mostrarRubroSuelto ? 4 : 0) + 6 + 4;
-          if (colIdx === 0 && y + alturaEstimada > 280) {
-            doc.addPage();
-            y = 20;
-            filaMaxY = y;
-          }
-
-          const cardY = y;
-          if (mostrarFoto) {
-            const img = imagenesCache[p.id];
-            if (img) {
-              try {
-                doc.addImage(img, "JPEG", x, cardY, colAncho, alturaImagen);
-              } catch {}
-            } else {
-              doc.setDrawColor(230, 230, 230);
-              doc.rect(x, cardY, colAncho, alturaImagen);
-            }
-          }
-          let textoY = cardY + (mostrarFoto ? alturaImagen + 5 : 5);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(30, 30, 30);
-          doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
-          textoY += 5;
-          if (p.colores.length) {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            doc.setTextColor(120, 120, 120);
-            doc.text(p.colores.join(", "), x, textoY);
-            textoY += 4;
-          }
-          if (mostrarCodigo) {
-            doc.setFontSize(7);
-            doc.text(p.codigo, x, textoY);
-            textoY += 4;
-          }
-          if (mostrarRubroSuelto) {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(7);
-            doc.setTextColor(150, 150, 150);
-            doc.text(p.categoriaNombre, x, textoY);
-            textoY += 4;
-          }
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(124, 58, 237);
-          let precioTexto = "";
-          if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
-          else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
-          else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
-          doc.text(precioTexto, x, textoY);
-          textoY += 6;
-
-          filaMaxY = Math.max(filaMaxY, textoY);
-
-          colIdx++;
-          if (colIdx >= 2) {
+      for (const p of productosParaLista) {
+        if (agrupadoPorRubro && p.categoriaNombre !== rubroAnterior) {
+          if (colIdx !== 0) {
+            y = filaMaxY + 4;
             colIdx = 0;
             x = margen;
-            y = filaMaxY + 4;
-          } else {
-            x = margen + colAncho + 8;
           }
+          tituloRubro(p.categoriaNombre);
+          filaMaxY = y;
+          rubroAnterior = p.categoriaNombre;
+        }
+
+        const alturaEstimada =
+          alturaImagen + 5 + (p.colores.length ? 4 : 0) + (mostrarCodigo ? 4 : 0) + (mostrarRubroSuelto ? 4 : 0) + 6 + 4;
+        if (colIdx === 0 && y + alturaEstimada > 280) {
+          doc.addPage();
+          y = 20;
+          filaMaxY = y;
+        }
+
+        const cardY = y;
+        if (mostrarFoto) {
+          const img = imagenesCache[p.id];
+          if (img) {
+            try {
+              doc.addImage(img, "JPEG", x, cardY, colAncho, alturaImagen);
+            } catch {}
+          } else {
+            doc.setDrawColor(230, 230, 230);
+            doc.rect(x, cardY, colAncho, alturaImagen);
+          }
+        }
+        let textoY = cardY + (mostrarFoto ? alturaImagen + 5 : 5);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(30, 30, 30);
+        doc.text(doc.splitTextToSize(p.nombre, colAncho), x, textoY);
+        textoY += 5;
+        if (p.colores.length) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(120, 120, 120);
+          doc.text(p.colores.join(", "), x, textoY);
+          textoY += 4;
+        }
+        if (mostrarCodigo) {
+          doc.setFontSize(7);
+          doc.text(p.codigo, x, textoY);
+          textoY += 4;
+        }
+        if (mostrarRubroSuelto) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.setTextColor(150, 150, 150);
+          doc.text(p.categoriaNombre, x, textoY);
+          textoY += 4;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(124, 58, 237);
+        let precioTexto = "";
+        if (tipoPrecio === "mayorista") precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}`;
+        else if (tipoPrecio === "minorista") precioTexto = `Min: $${formatearMoneda(p.precio_minorista)}`;
+        else precioTexto = `May: $${formatearMoneda(p.precio_mayorista)}  Min: $${formatearMoneda(p.precio_minorista)}`;
+        doc.text(precioTexto, x, textoY);
+        textoY += 6;
+
+        filaMaxY = Math.max(filaMaxY, textoY);
+
+        colIdx++;
+        if (colIdx >= 2) {
+          colIdx = 0;
+          x = margen;
+          y = filaMaxY + 4;
+        } else {
+          x = margen + colAncho + 8;
         }
       }
     }
@@ -587,49 +573,56 @@ export default function ListasPreciosPanel() {
                 let rubroAnterior: string | null = null;
                 return (
                   <>
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-neutral-100 text-left text-neutral-500">
-                        <tr>
-                          <th className="py-2">Código</th>
-                          <th className="py-2">Producto</th>
-                          <th className="py-2">Color</th>
-                          <th className="w-24 py-2 text-right">Cantidad</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filasPedido.map((f) => {
-                          const mostrarHeader = agrupadoPorRubro && f.categoriaNombre !== rubroAnterior;
-                          rubroAnterior = f.categoriaNombre;
-                          return (
-                            <Fragment key={f.key}>
-                              {mostrarHeader && (
-                                <tr className="bg-violet-50">
-                                  <td colSpan={4} className="px-1 py-2 text-xs font-bold uppercase tracking-wide text-violet-700">
-                                    {f.categoriaNombre}
-                                  </td>
-                                </tr>
-                              )}
-                              <tr className="border-b border-neutral-50">
-                                <td className="py-2 font-mono text-xs">{f.codigo}</td>
-                                <td className="py-2 font-medium">{f.nombre}</td>
-                                <td className="py-2 text-neutral-500">{f.color ?? "—"}</td>
-                                <td className="py-2 text-right">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    className="input no-spinner w-20 py-1 text-right no-print"
-                                    placeholder="0"
-                                    value={cantidadesPedido[f.key] ?? ""}
-                                    onChange={(e) => setCantidadesPedido((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                                  />
-                                  <span className="print-only">{cantidadesPedido[f.key] || "—"}</span>
-                                </td>
-                              </tr>
-                            </Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {productosParaLista.map((p) => {
+                        const mostrarHeader = agrupadoPorRubro && p.categoriaNombre !== rubroAnterior;
+                        rubroAnterior = p.categoriaNombre;
+                        const colores = p.colores.length ? p.colores : [null];
+                        return (
+                          <Fragment key={p.id}>
+                            {mostrarHeader && (
+                              <div className="col-span-1 rounded bg-violet-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-violet-700 sm:col-span-2">
+                                {p.categoriaNombre}
+                              </div>
+                            )}
+                            <div className="rounded-lg border border-neutral-100 p-3">
+                              <div className="mb-2 flex gap-3">
+                                {mostrarFoto &&
+                                  (p.foto_url ? (
+                                    <img src={p.foto_url} alt="" className="h-16 w-16 flex-shrink-0 rounded object-cover" />
+                                  ) : (
+                                    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded bg-neutral-50 text-[10px] text-neutral-300">
+                                      Sin foto
+                                    </div>
+                                  ))}
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium">{p.nombre}</p>
+                                  {mostrarCodigo && <p className="font-mono text-xs text-neutral-400">{p.codigo}</p>}
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                {colores.map((color) => {
+                                  const key = `${p.id}__${color ?? "sin-color"}`;
+                                  return (
+                                    <div key={key} className="flex items-center justify-between gap-2">
+                                      <span className="text-sm text-neutral-600">{color ?? "Cantidad"}</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        className="input no-spinner w-20 py-1 text-right"
+                                        placeholder="0"
+                                        value={cantidadesPedido[key] ?? ""}
+                                        onChange={(e) => setCantidadesPedido((prev) => ({ ...prev, [key]: e.target.value }))}
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </Fragment>
+                        );
+                      })}
+                    </div>
                     {totalUnidadesPedido > 0 && (
                       <p className="no-print mt-4 text-right text-sm font-medium text-neutral-500">
                         Total anotado: <span className="text-violet-700">{totalUnidadesPedido} unidades</span>
@@ -892,22 +885,22 @@ export default function ListasPreciosPanel() {
               </label>
             </div>
 
-            {presentacion !== "pedido" && (
-              <div className="flex flex-wrap gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={mostrarFoto} onChange={(e) => setMostrarFoto(e.target.checked)} />
-                  Mostrar foto
-                </label>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={mostrarCodigo} onChange={(e) => setMostrarCodigo(e.target.checked)} />
-                  Mostrar código
-                </label>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={mostrarFoto} onChange={(e) => setMostrarFoto(e.target.checked)} />
+                Mostrar foto
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={mostrarCodigo} onChange={(e) => setMostrarCodigo(e.target.checked)} />
+                Mostrar código
+              </label>
+              {presentacion !== "pedido" && (
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={mostrarRubro} onChange={(e) => setMostrarRubro(e.target.checked)} />
                   Mostrar rubro
                 </label>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label>
