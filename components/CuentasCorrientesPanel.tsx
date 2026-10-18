@@ -12,6 +12,135 @@ interface Entidad {
   saldo: number;
 }
 
+function Seccion({
+  titulo,
+  entidadTipo,
+  entidades,
+  labelPago,
+  movimientosIniciales,
+  abiertoId,
+  setAbiertoId,
+  monto,
+  setMonto,
+  observaciones,
+  setObservaciones,
+  guardando,
+  registrarPago,
+  historialAbierto,
+  setHistorialAbierto,
+}: {
+  titulo: string;
+  entidadTipo: "cliente" | "proveedor";
+  entidades: Entidad[];
+  labelPago: string;
+  movimientosIniciales: any[];
+  abiertoId: string | null;
+  setAbiertoId: (id: string | null) => void;
+  monto: string;
+  setMonto: (v: string) => void;
+  observaciones: string;
+  setObservaciones: (v: string) => void;
+  guardando: boolean;
+  registrarPago: (entidadTipo: "cliente" | "proveedor", entidadId: string) => void;
+  historialAbierto: string | null;
+  setHistorialAbierto: (id: string | null) => void;
+}) {
+  return (
+    <div className="card">
+      <p className="mb-4 text-sm font-medium text-neutral-500">{titulo}</p>
+      {entidades.length === 0 ? (
+        <p className="text-sm text-neutral-400">Sin saldos pendientes.</p>
+      ) : (
+        <div className="space-y-2">
+          {entidades.map((e) => {
+            const historial = movimientosIniciales.filter((m) => m.entidad_id === e.id);
+            return (
+              <div key={e.id} className="border-b border-neutral-50 pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{e.nombre}</p>
+                    <div className="flex gap-3 no-print">
+                      <button
+                        onClick={() => setHistorialAbierto(historialAbierto === e.id ? null : e.id)}
+                        className="text-xs text-neutral-400 hover:underline"
+                      >
+                        {historialAbierto === e.id ? "ocultar historial" : "ver historial"}
+                      </button>
+                      <Link href={`/cuentas-corrientes/${entidadTipo}/${e.id}`} className="text-xs text-violet-600 hover:underline">
+                        ficha / imprimir
+                      </Link>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`font-semibold ${
+                        e.saldo === 0 ? "text-neutral-400" : e.saldo > 0 ? "text-red-600" : "text-green-600"
+                      }`}
+                    >
+                      ${formatearMoneda(Math.abs(e.saldo))} {e.saldo !== 0 && (e.saldo > 0 ? "(debe)" : "(a favor)")}
+                    </span>
+                    <button
+                      onClick={() => setAbiertoId(abiertoId === e.id ? null : e.id)}
+                      className="text-xs font-medium text-violet-600 hover:underline no-print"
+                    >
+                      {labelPago}
+                    </button>
+                  </div>
+                </div>
+
+                {abiertoId === e.id && (
+                  <div className="mt-2 flex items-end gap-2 rounded-lg bg-neutral-50 p-3 no-print">
+                    <label className="flex-1">
+                      <span className="mb-1 block text-xs text-neutral-500">Monto</span>
+                      <input
+                        type="number"
+                        className="input no-spinner py-1"
+                        value={monto}
+                        onChange={(e) => setMonto(e.target.value)}
+                      />
+                    </label>
+                    <label className="flex-1">
+                      <span className="mb-1 block text-xs text-neutral-500">Observaciones</span>
+                      <input
+                        className="input py-1"
+                        value={observaciones}
+                        onChange={(e) => setObservaciones(e.target.value)}
+                      />
+                    </label>
+                    <button
+                      onClick={() => registrarPago(entidadTipo, e.id)}
+                      disabled={guardando}
+                      className="btn-primary whitespace-nowrap py-1.5"
+                    >
+                      {guardando ? "..." : "Confirmar"}
+                    </button>
+                  </div>
+                )}
+
+                {historialAbierto === e.id && (
+                  <div className="mt-2 space-y-1 rounded-lg bg-neutral-50 p-3 text-xs">
+                    {historial.length === 0 && <p className="text-neutral-400">Sin movimientos.</p>}
+                    {historial.map((m) => (
+                      <div key={m.id} className="flex justify-between">
+                        <span className="text-neutral-500">
+                          {m.fecha} — {m.observaciones ?? m.referencia_tipo}
+                        </span>
+                        <span className={m.tipo === "cargo" ? "text-red-600" : "text-green-600"}>
+                          {m.tipo === "cargo" ? "+" : "-"}${formatearMoneda(Number(m.monto))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CuentasCorrientesPanel({
   clientesConSaldo,
   proveedoresConSaldo,
@@ -61,117 +190,52 @@ export default function CuentasCorrientesPanel({
     router.refresh();
   }
 
-  function Seccion({ titulo, entidadTipo, entidades, labelPago }: { titulo: string; entidadTipo: "cliente" | "proveedor"; entidades: Entidad[]; labelPago: string }) {
-    return (
-      <div className="card">
-        <p className="mb-4 text-sm font-medium text-neutral-500">{titulo}</p>
-        {entidades.length === 0 ? (
-          <p className="text-sm text-neutral-400">Sin saldos pendientes.</p>
-        ) : (
-          <div className="space-y-2">
-            {entidades.map((e) => {
-              const historial = movimientosIniciales.filter((m) => m.entidad_id === e.id);
-              return (
-                <div key={e.id} className="border-b border-neutral-50 pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{e.nombre}</p>
-                      <div className="flex gap-3 no-print">
-                        <button
-                          onClick={() => setHistorialAbierto(historialAbierto === e.id ? null : e.id)}
-                          className="text-xs text-neutral-400 hover:underline"
-                        >
-                          {historialAbierto === e.id ? "ocultar historial" : "ver historial"}
-                        </button>
-                        <Link href={`/cuentas-corrientes/${entidadTipo}/${e.id}`} className="text-xs text-violet-600 hover:underline">
-                          ficha / imprimir
-                        </Link>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`font-semibold ${
-                          e.saldo === 0 ? "text-neutral-400" : e.saldo > 0 ? "text-red-600" : "text-green-600"
-                        }`}
-                      >
-                                                ${formatearMoneda(Math.abs(e.saldo))} {e.saldo !== 0 && (e.saldo > 0 ? "(debe)" : "(a favor)")}
-                      </span>
-                      <button
-                        onClick={() => setAbiertoId(abiertoId === e.id ? null : e.id)}
-                        className="text-xs font-medium text-violet-600 hover:underline no-print"
-                      >
-                        {labelPago}
-                      </button>
-                    </div>
-                  </div>
-
-                  {abiertoId === e.id && (
-                    <div className="mt-2 flex items-end gap-2 rounded-lg bg-neutral-50 p-3 no-print">
-                      <label className="flex-1">
-                        <span className="mb-1 block text-xs text-neutral-500">Monto</span>
-                        <input
-                          type="number"
-                          className="input no-spinner py-1"
-                          value={monto}
-                          onChange={(e) => setMonto(e.target.value)}
-                        />
-                      </label>
-                      <label className="flex-1">
-                        <span className="mb-1 block text-xs text-neutral-500">Observaciones</span>
-                        <input
-                          className="input py-1"
-                          value={observaciones}
-                          onChange={(e) => setObservaciones(e.target.value)}
-                        />
-                      </label>
-                      <button
-                        onClick={() => registrarPago(entidadTipo, e.id)}
-                        disabled={guardando}
-                        className="btn-primary whitespace-nowrap py-1.5"
-                      >
-                        {guardando ? "..." : "Confirmar"}
-                      </button>
-                    </div>
-                  )}
-
-                  {historialAbierto === e.id && (
-                    <div className="mt-2 space-y-1 rounded-lg bg-neutral-50 p-3 text-xs">
-                      {historial.length === 0 && <p className="text-neutral-400">Sin movimientos.</p>}
-                      {historial.map((m) => (
-                        <div key={m.id} className="flex justify-between">
-                          <span className="text-neutral-500">
-                            {m.fecha} — {m.observaciones ?? m.referencia_tipo}
-                          </span>
-                                                                              <span className={m.tipo === "cargo" ? "text-red-600" : "text-green-600"}>
-                            {m.tipo === "cargo" ? "+" : "-"}${formatearMoneda(Number(m.monto))}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="card">
           <p className="text-sm text-neutral-500">Total a cobrar (clientes)</p>
-                    <p className="text-2xl font-semibold text-red-600">${formatearMoneda(totalACobrar)}</p>
+          <p className="text-2xl font-semibold text-red-600">${formatearMoneda(totalACobrar)}</p>
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Total a pagar (proveedores)</p>
           <p className="text-2xl font-semibold text-red-600">${formatearMoneda(totalAPagar)}</p>
         </div>
       </div>
-      <Seccion titulo="Clientes" entidadTipo="cliente" entidades={clientesConSaldo} labelPago="Registrar cobro" />
-      <Seccion titulo="Proveedores" entidadTipo="proveedor" entidades={proveedoresConSaldo} labelPago="Registrar pago" />
+      <Seccion
+        titulo="Clientes"
+        entidadTipo="cliente"
+        entidades={clientesConSaldo}
+        labelPago="Registrar cobro"
+        movimientosIniciales={movimientosIniciales}
+        abiertoId={abiertoId}
+        setAbiertoId={setAbiertoId}
+        monto={monto}
+        setMonto={setMonto}
+        observaciones={observaciones}
+        setObservaciones={setObservaciones}
+        guardando={guardando}
+        registrarPago={registrarPago}
+        historialAbierto={historialAbierto}
+        setHistorialAbierto={setHistorialAbierto}
+      />
+      <Seccion
+        titulo="Proveedores"
+        entidadTipo="proveedor"
+        entidades={proveedoresConSaldo}
+        labelPago="Registrar pago"
+        movimientosIniciales={movimientosIniciales}
+        abiertoId={abiertoId}
+        setAbiertoId={setAbiertoId}
+        monto={monto}
+        setMonto={setMonto}
+        observaciones={observaciones}
+        setObservaciones={setObservaciones}
+        guardando={guardando}
+        registrarPago={registrarPago}
+        historialAbierto={historialAbierto}
+        setHistorialAbierto={setHistorialAbierto}
+      />
     </div>
   );
 }
