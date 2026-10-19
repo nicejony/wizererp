@@ -307,7 +307,7 @@ export default function ListasPreciosPanel() {
         }
 
         const colores = p.colores.length ? p.colores : [null];
-        const alturaBloque = Math.max(mostrarFoto ? imgSize : 0, 10) + colores.length * 6 + 6;
+        const alturaBloque = Math.max(mostrarFoto ? imgSize : 0, 10) + colores.length * 6 + 10;
 
         if (y + alturaBloque > 280) {
           doc.addPage();
@@ -340,8 +340,11 @@ export default function ListasPreciosPanel() {
         doc.setFontSize(8);
         doc.setTextColor(140, 140, 140);
         doc.text(p.codigo, textoX, bloqueY + 9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(124, 58, 237);
+        doc.text(`$${formatearMoneda(p.precio_mayorista)}`, textoX, bloqueY + 13.5);
 
-        let filaY = bloqueY + 14;
+        let filaY = bloqueY + 18;
         doc.setFontSize(9);
         for (const color of colores) {
           doc.setTextColor(60, 60, 60);
@@ -598,6 +601,7 @@ export default function ListasPreciosPanel() {
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-medium">{p.nombre}</p>
                                   {mostrarCodigo && <p className="font-mono text-xs text-neutral-400">{p.codigo}</p>}
+                                  <p className="text-xs font-semibold text-violet-700">${formatearMoneda(p.precio_mayorista)}</p>
                                 </div>
                               </div>
                               <div className="space-y-1">
@@ -881,7 +885,7 @@ export default function ListasPreciosPanel() {
               </label>
               <label className="flex items-center gap-2">
                 <input type="radio" checked={presentacion === "pedido"} onChange={() => setPresentacion("pedido")} />
-                Planilla de pedido (sin precios, para el cliente)
+                Planilla de pedido (para el cliente)
               </label>
             </div>
 
