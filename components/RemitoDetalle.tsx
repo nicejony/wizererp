@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +15,13 @@ interface ItemRemito {
   nombreBase: string;
 }
 
+interface Remitente {
+  razon_social: string | null;
+  cuit: string | null;
+  direccion: string | null;
+  telefono: string | null;
+}
+
 export default function RemitoDetalle({ documento, itemsIniciales }: { documento: any; itemsIniciales: any[] }) {
   const router = useRouter();
   const supabase = createClient();
@@ -23,6 +30,16 @@ export default function RemitoDetalle({ documento, itemsIniciales }: { documento
   const [guardando, setGuardando] = useState(false);
   const [bultos, setBultos] = useState(documento.bultos ?? "");
   const [transportista, setTransportista] = useState(documento.transportista ?? cliente?.nombre_expreso ?? "");
+  const [remitente, setRemitente] = useState<Remitente | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("remitente")
+      .select("razon_social, cuit, direccion, telefono")
+      .limit(1)
+      .single()
+      .then(({ data }) => setRemitente(data));
+  }, []);
 
   const [items, setItems] = useState<ItemRemito[]>(
     itemsIniciales.map((i) => {
@@ -99,6 +116,18 @@ export default function RemitoDetalle({ documento, itemsIniciales }: { documento
             <p>{documento.fecha}</p>
           </div>
         </div>
+
+        {remitente && (remitente.razon_social || remitente.cuit || remitente.direccion || remitente.telefono) && (
+          <div className="mb-4 rounded-lg bg-neutral-50 p-3 text-sm">
+            <p className="mb-1 text-xs font-medium text-neutral-400">Remitente</p>
+            <p className="font-medium">{remitente.razon_social || "—"}</p>
+            <p className="text-neutral-600">
+              {remitente.cuit && <>CUIT: {remitente.cuit} — </>}
+              {remitente.direccion || "—"}
+              {remitente.telefono && <> — Tel: {remitente.telefono}</>}
+            </p>
+          </div>
+        )}
 
         <div className="mb-6 space-y-1 text-sm">
           <p>
