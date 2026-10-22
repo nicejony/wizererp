@@ -21,7 +21,8 @@ export default async function ConfiguracionPage() {
             <h1 className="flex items-center gap-2 text-2xl font-semibold">
         <Settings className="text-violet-600" size={22} /> Configuración
       </h1>
-      <TipoCambioManager tipoCambio={tipoCambio} />
+            <TipoCambioManager tipoCambio={tipoCambio} />
+      <RemitenteManager />
       <ConfiguracionPanel
         usuariosIniciales={usuarios ?? []}
         categoriasIniciales={categorias ?? []}
