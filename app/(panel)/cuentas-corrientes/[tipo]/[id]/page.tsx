@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import BotonImprimir from "@/components/BotonImprimir";
+import FilaMovimientoFicha from "@/components/FilaMovimientoFicha";
 import { formatearMoneda } from "@/lib/format";
 
 export default async function FichaCuentaCorrientePage({ params }: { params: { tipo: string; id: string } }) {
@@ -53,21 +54,16 @@ export default async function FichaCuentaCorrientePage({ params }: { params: { t
               <th className="py-2 text-right">Cargo</th>
               <th className="py-2 text-right">Pago</th>
               <th className="py-2 text-right">Saldo</th>
+              <th className="no-print py-2"></th>
             </tr>
           </thead>
           <tbody>
             {filas.map((m) => (
-              <tr key={m.id} className="border-b border-neutral-50">
-                <td className="py-2">{m.fecha}</td>
-                <td className="py-2">{m.observaciones ?? m.referencia_tipo ?? "—"}</td>
-                                <td className="py-2 text-right text-red-600">{m.tipo === "cargo" ? `$${formatearMoneda(Number(m.monto))}` : ""}</td>
-                <td className="py-2 text-right text-green-600">{m.tipo === "pago" ? `$${formatearMoneda(Number(m.monto))}` : ""}</td>
-                <td className="py-2 text-right font-medium">${formatearMoneda(m.saldoCorrido)}</td>
-              </tr>
+              <FilaMovimientoFicha key={m.id} m={m} saldoCorrido={m.saldoCorrido} />
             ))}
             {filas.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-neutral-400">
+                <td colSpan={6} className="py-8 text-center text-neutral-400">
                   Sin movimientos registrados.
                 </td>
               </tr>
@@ -79,7 +75,7 @@ export default async function FichaCuentaCorrientePage({ params }: { params: { t
           <div className="text-right">
             <p className="text-sm text-neutral-500">Saldo actual</p>
             <p className={`text-2xl font-semibold ${saldoCorrido > 0 ? "text-red-600" : saldoCorrido < 0 ? "text-green-600" : "text-neutral-400"}`}>
-                            ${formatearMoneda(Math.abs(saldoCorrido))} {saldoCorrido !== 0 && (saldoCorrido > 0 ? "(debe)" : "(a favor)")}
+              ${formatearMoneda(Math.abs(saldoCorrido))} {saldoCorrido !== 0 && (saldoCorrido > 0 ? "(debe)" : "(a favor)")}
             </p>
           </div>
         </div>
