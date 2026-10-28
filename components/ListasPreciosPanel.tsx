@@ -236,16 +236,42 @@ export default function ListasPreciosPanel() {
     setMisListas((prev) => prev.filter((l) => l.id !== id));
   }
 
-  async function imagenABase64(url: string): Promise<string | null> {
+    // Descarga la foto, la recorta al aspecto pedido (sin deformarla), la achica y la devuelve siempre como JPEG.
+  async function imagenABase64(url: string, aspecto: number): Promise<string | null> {
     try {
       const res = await fetch(url);
       const blob = await res.blob();
-      return await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error("No se pudo leer la imagen"));
+        el.src = objectUrl;
       });
+
+      let sx = 0;
+      let sy = 0;
+      let sw = img.width;
+      let sh = img.height;
+      if (img.width / img.height > aspecto) {
+        sw = img.height * aspecto;
+        sx = (img.width - sw) / 2;
+      } else {
+        sh = img.width / aspecto;
+        sy = (img.height - sh) / 2;
+      }
+
+      const salidaAncho = Math.min(500, sw);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(salidaAncho);
+      canvas.height = Math.round(salidaAncho / aspecto);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      return canvas.toDataURL("image/jpeg", 0.75);
     } catch {
       return null;
     }
@@ -287,12 +313,17 @@ export default function ListasPreciosPanel() {
       y += 6;
     }
 
+        // El catálogo usa fotos 4:3; la lista y la planilla de pedido usan miniaturas cuadradas
+    const aspectoFotos = presentacion === "catalogo" ? 4 / 3 : 1;
     const imagenesCache: Record<string, string | null> = {};
-    if (mostrarFoto && (presentacion === "catalogo" || presentacion === "pedido")) {
-      for (const p of productosParaLista) {
-        if (p.foto_url && !(p.id in imagenesCache)) {
-          imagenesCache[p.id] = await imagenABase64(p.foto_url);
-        }
+    if (mostrarFoto) {
+      const conFoto = productosParaLista.filter((p) => p.foto_url);
+      for (let i = 0; i < conFoto.length; i += 6) {
+        await Promise.all(
+          conFoto.slice(i, i + 6).map(async (p) => {
+            imagenesCache[p.id] = await imagenABase64(p.foto_url as string, aspectoFotos);
+          })
+        );
       }
     }
 
