@@ -4,29 +4,54 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { formatearMoneda } from "@/lib/format";
+import { conMoneda, normalizarMoneda, Moneda } from "@/lib/monedas";
 
 interface Entidad {
   id: string;
   nombre: string;
-  saldo: number;
+  saldoArs: number;
+  saldoUsd: number;
+}
+
+function LineaSaldo({ monto, moneda }: { monto: number; moneda: Moneda }) {
+  if (monto === 0) return null;
+  return (
+    <p className={`font-semibold ${monto > 0 ? "text-red-600" : "text-green-600"}`}>
+      {conMoneda(Math.abs(monto), moneda)} {monto > 0 ? "(debe)" : "(a favor)"}
+    </p>
+  );
+}
+
+function SaldoEntidad({ e }: { e: Entidad }) {
+  if (e.saldoArs === 0 && e.saldoUsd === 0) {
+    return <p className="font-semibold text-neutral-400">{conMoneda(0, "ARS")}</p>;
+  }
+  return (
+    <div className="text-right">
+      <LineaSaldo monto={e.saldoArs} moneda="ARS" />
+      <LineaSaldo monto={e.saldoUsd} moneda="USD" />
+    </div>
+  );
 }
 
 function MovimientoFila({ m }: { m: any }) {
   const router = useRouter();
   const supabase = createClient();
   const esManual = !m.referencia_tipo;
+  const esCliente = m.entidad_tipo === "cliente";
 
   const [editando, setEditando] = useState(false);
   const [monto, setMonto] = useState(String(m.monto));
   const [fecha, setFecha] = useState(String(m.fecha ?? "").slice(0, 10));
   const [observaciones, setObservaciones] = useState(m.observaciones ?? "");
+  const [moneda, setMoneda] = useState<Moneda>(normalizarMoneda(m.moneda));
   const [guardando, setGuardando] = useState(false);
 
   function empezarEdicion() {
     setMonto(String(m.monto));
     setFecha(String(m.fecha ?? "").slice(0, 10));
     setObservaciones(m.observaciones ?? "");
+    setMoneda(normalizarMoneda(m.moneda));
     setEditando(true);
   }
 
@@ -40,6 +65,7 @@ function MovimientoFila({ m }: { m: any }) {
     if (esManual) {
       cambios.monto = Number(monto);
       if (fecha) cambios.fecha = fecha;
+      if (esCliente) cambios.moneda = moneda;
     }
     const { error } = await supabase.from("movimientos_cuenta").update(cambios).eq("id", m.id);
     setGuardando(false);
@@ -72,6 +98,15 @@ function MovimientoFila({ m }: { m: any }) {
               <span className="mb-1 block text-neutral-500">Fecha</span>
               <input type="date" className="input py-1" value={fecha} onChange={(e) => setFecha(e.target.value)} />
             </label>
+            {esCliente && (
+              <label className="w-28">
+                <span className="mb-1 block text-neutral-500">Moneda</span>
+                <select className="input py-1" value={moneda} onChange={(e) => setMoneda(e.target.value as Moneda)}>
+                  <option value="ARS">$ Pesos</option>
+                  <option value="USD">U$D</option>
+                </select>
+              </label>
+            )}
             <label className="flex-1">
               <span className="mb-1 block text-neutral-500">Monto</span>
               <input type="number" className="input no-spinner py-1" value={monto} onChange={(e) => setMonto(e.target.value)} />
@@ -110,7 +145,8 @@ function MovimientoFila({ m }: { m: any }) {
       </span>
       <span className="flex items-center gap-2">
         <span className={m.tipo === "cargo" ? "text-red-600" : "text-green-600"}>
-          {m.tipo === "cargo" ? "+" : "-"}${formatearMoneda(Number(m.monto))}
+          {m.tipo === "cargo" ? "+" : "-"}
+          {conMoneda(Number(m.monto), m.moneda)}
         </span>
         <button onClick={empezarEdicion} className="text-neutral-400 hover:text-violet-600 no-print">
           editar
@@ -127,11 +163,13 @@ function Seccion({
   labelPago,
   movimientosIniciales,
   abiertoId,
-  setAbiertoId,
+  abrirCobro,
   monto,
   setMonto,
   observaciones,
   setObservaciones,
+  moneda,
+  setMoneda,
   guardando,
   registrarPago,
   historialAbierto,
@@ -143,11 +181,13 @@ function Seccion({
   labelPago: string;
   movimientosIniciales: any[];
   abiertoId: string | null;
-  setAbiertoId: (id: string | null) => void;
+  abrirCobro: (e: Entidad) => void;
   monto: string;
   setMonto: (v: string) => void;
   observaciones: string;
   setObservaciones: (v: string) => void;
+  moneda: Moneda;
+  setMoneda: (v: Moneda) => void;
   guardando: boolean;
   registrarPago: (entidadTipo: "cliente" | "proveedor", entidadId: string) => void;
   historialAbierto: string | null;
@@ -180,15 +220,9 @@ function Seccion({
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span
-                      className={`font-semibold ${
-                        e.saldo === 0 ? "text-neutral-400" : e.saldo > 0 ? "text-red-600" : "text-green-600"
-                      }`}
-                    >
-                      ${formatearMoneda(Math.abs(e.saldo))} {e.saldo !== 0 && (e.saldo > 0 ? "(debe)" : "(a favor)")}
-                    </span>
+                    <SaldoEntidad e={e} />
                     <button
-                      onClick={() => setAbiertoId(abiertoId === e.id ? null : e.id)}
+                      onClick={() => abrirCobro(e)}
                       className="text-xs font-medium text-violet-600 hover:underline no-print"
                     >
                       {labelPago}
@@ -197,22 +231,31 @@ function Seccion({
                 </div>
 
                 {abiertoId === e.id && (
-                  <div className="mt-2 flex items-end gap-2 rounded-lg bg-neutral-50 p-3 no-print">
-                    <label className="flex-1">
-                      <span className="mb-1 block text-xs text-neutral-500">Monto</span>
+                  <div className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-neutral-50 p-3 no-print">
+                    {entidadTipo === "cliente" && (
+                      <label className="w-28">
+                        <span className="mb-1 block text-xs text-neutral-500">Moneda</span>
+                        <select className="input py-1" value={moneda} onChange={(ev) => setMoneda(ev.target.value as Moneda)}>
+                          <option value="ARS">$ Pesos</option>
+                          <option value="USD">U$D</option>
+                        </select>
+                      </label>
+                    )}
+                    <label className="min-w-[7rem] flex-1">
+                      <span className="mb-1 block text-xs text-neutral-500">Monto ({moneda === "USD" ? "U$D" : "$"})</span>
                       <input
                         type="number"
                         className="input no-spinner py-1"
                         value={monto}
-                        onChange={(e) => setMonto(e.target.value)}
+                        onChange={(ev) => setMonto(ev.target.value)}
                       />
                     </label>
-                    <label className="flex-1">
+                    <label className="min-w-[7rem] flex-1">
                       <span className="mb-1 block text-xs text-neutral-500">Observaciones</span>
                       <input
                         className="input py-1"
                         value={observaciones}
-                        onChange={(e) => setObservaciones(e.target.value)}
+                        onChange={(ev) => setObservaciones(ev.target.value)}
                       />
                     </label>
                     <button
@@ -254,14 +297,30 @@ export default function CuentasCorrientesPanel({
   const router = useRouter();
   const supabase = createClient();
 
-  const totalACobrar = clientesConSaldo.filter((c) => c.saldo > 0).reduce((s, c) => s + c.saldo, 0);
-  const totalAPagar = proveedoresConSaldo.filter((p) => p.saldo > 0).reduce((s, p) => s + p.saldo, 0);
+  function sumarDeuda(lista: Entidad[], campo: "saldoArs" | "saldoUsd") {
+    return lista.filter((e) => e[campo] > 0).reduce((s, e) => s + e[campo], 0);
+  }
+  const totalACobrarArs = sumarDeuda(clientesConSaldo, "saldoArs");
+  const totalACobrarUsd = sumarDeuda(clientesConSaldo, "saldoUsd");
+  const totalAPagarArs = sumarDeuda(proveedoresConSaldo, "saldoArs");
+  const totalAPagarUsd = sumarDeuda(proveedoresConSaldo, "saldoUsd");
 
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
   const [monto, setMonto] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [moneda, setMoneda] = useState<Moneda>("ARS");
   const [guardando, setGuardando] = useState(false);
   const [historialAbierto, setHistorialAbierto] = useState<string | null>(null);
+
+  // Al abrir el cobro, la moneda arranca en la de la deuda del cliente (dólares si solo debe dólares)
+  function abrirCobro(e: Entidad) {
+    if (abiertoId === e.id) {
+      setAbiertoId(null);
+      return;
+    }
+    setAbiertoId(e.id);
+    setMoneda(e.saldoUsd > 0 && e.saldoArs <= 0 ? "USD" : "ARS");
+  }
 
   async function registrarPago(entidadTipo: "cliente" | "proveedor", entidadId: string) {
     if (!monto || Number(monto) <= 0) return;
@@ -276,6 +335,7 @@ export default function CuentasCorrientesPanel({
       entidad_id: entidadId,
       tipo: "pago",
       monto: Number(monto),
+      moneda: entidadTipo === "cliente" ? moneda : "ARS",
       observaciones: observaciones || null,
       usuario_id: user?.id ?? null,
     });
@@ -288,6 +348,7 @@ export default function CuentasCorrientesPanel({
     setAbiertoId(null);
     setMonto("");
     setObservaciones("");
+    setMoneda("ARS");
     router.refresh();
   }
 
@@ -296,11 +357,13 @@ export default function CuentasCorrientesPanel({
       <div className="grid grid-cols-2 gap-4">
         <div className="card">
           <p className="text-sm text-neutral-500">Total a cobrar (clientes)</p>
-          <p className="text-2xl font-semibold text-red-600">${formatearMoneda(totalACobrar)}</p>
+          <p className="text-2xl font-semibold text-red-600">{conMoneda(totalACobrarArs, "ARS")}</p>
+          {totalACobrarUsd > 0 && <p className="text-xl font-semibold text-red-600">{conMoneda(totalACobrarUsd, "USD")}</p>}
         </div>
         <div className="card">
           <p className="text-sm text-neutral-500">Total a pagar (proveedores)</p>
-          <p className="text-2xl font-semibold text-red-600">${formatearMoneda(totalAPagar)}</p>
+          <p className="text-2xl font-semibold text-red-600">{conMoneda(totalAPagarArs, "ARS")}</p>
+          {totalAPagarUsd > 0 && <p className="text-xl font-semibold text-red-600">{conMoneda(totalAPagarUsd, "USD")}</p>}
         </div>
       </div>
       <Seccion
@@ -310,11 +373,13 @@ export default function CuentasCorrientesPanel({
         labelPago="Registrar cobro"
         movimientosIniciales={movimientosIniciales}
         abiertoId={abiertoId}
-        setAbiertoId={setAbiertoId}
+        abrirCobro={abrirCobro}
         monto={monto}
         setMonto={setMonto}
         observaciones={observaciones}
         setObservaciones={setObservaciones}
+        moneda={moneda}
+        setMoneda={setMoneda}
         guardando={guardando}
         registrarPago={registrarPago}
         historialAbierto={historialAbierto}
@@ -327,11 +392,13 @@ export default function CuentasCorrientesPanel({
         labelPago="Registrar pago"
         movimientosIniciales={movimientosIniciales}
         abiertoId={abiertoId}
-        setAbiertoId={setAbiertoId}
+        abrirCobro={abrirCobro}
         monto={monto}
         setMonto={setMonto}
         observaciones={observaciones}
         setObservaciones={setObservaciones}
+        moneda={moneda}
+        setMoneda={setMoneda}
         guardando={guardando}
         registrarPago={registrarPago}
         historialAbierto={historialAbierto}
