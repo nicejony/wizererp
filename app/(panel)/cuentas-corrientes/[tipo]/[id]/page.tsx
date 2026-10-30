@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import BotonImprimir from "@/components/BotonImprimir";
 import FilaMovimientoFicha from "@/components/FilaMovimientoFicha";
-import { formatearMoneda } from "@/lib/format";
+import { conMoneda, normalizarMoneda, Moneda } from "@/lib/monedas";
 
 export default async function FichaCuentaCorrientePage({ params }: { params: { tipo: string; id: string } }) {
   const supabase = createClient();
@@ -23,11 +23,16 @@ export default async function FichaCuentaCorrientePage({ params }: { params: { t
     .order("fecha", { ascending: true })
     .order("created_at", { ascending: true });
 
-  let saldoCorrido = 0;
+  // Saldo corrido aparte por cada moneda
+  const corridos: Record<Moneda, number> = { ARS: 0, USD: 0 };
   const filas = (movimientos ?? []).map((m) => {
-    saldoCorrido += m.tipo === "cargo" ? Number(m.monto) : -Number(m.monto);
-    return { ...m, saldoCorrido };
+    const moneda = normalizarMoneda(m.moneda);
+    corridos[moneda] += (m.tipo === "cargo" ? 1 : -1) * Number(m.monto);
+    corridos[moneda] = Math.round(corridos[moneda] * 100) / 100;
+    return { ...m, saldoCorrido: corridos[moneda] };
   });
+
+  const monedasConSaldo = (["ARS", "USD"] as Moneda[]).filter((mon) => corridos[mon] !== 0);
 
   return (
     <div className="max-w-2xl">
@@ -74,9 +79,15 @@ export default async function FichaCuentaCorrientePage({ params }: { params: { t
         <div className="flex justify-end border-t border-neutral-100 pt-4">
           <div className="text-right">
             <p className="text-sm text-neutral-500">Saldo actual</p>
-            <p className={`text-2xl font-semibold ${saldoCorrido > 0 ? "text-red-600" : saldoCorrido < 0 ? "text-green-600" : "text-neutral-400"}`}>
-              ${formatearMoneda(Math.abs(saldoCorrido))} {saldoCorrido !== 0 && (saldoCorrido > 0 ? "(debe)" : "(a favor)")}
-            </p>
+            {monedasConSaldo.length === 0 ? (
+              <p className="text-2xl font-semibold text-neutral-400">{conMoneda(0, "ARS")}</p>
+            ) : (
+              monedasConSaldo.map((mon) => (
+                <p key={mon} className={`text-2xl font-semibold ${corridos[mon] > 0 ? "text-red-600" : "text-green-600"}`}>
+                  {conMoneda(Math.abs(corridos[mon]), mon)} {corridos[mon] > 0 ? "(debe)" : "(a favor)"}
+                </p>
+              ))
+            )}
           </div>
         </div>
       </div>
