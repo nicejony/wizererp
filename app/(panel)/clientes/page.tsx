@@ -1,15 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { formatearMoneda } from "@/lib/format";
+import { calcularSaldos, conMoneda } from "@/lib/monedas";
 import { Users } from "lucide-react";
 
 export default async function ClientesPage() {
   const supabase = createClient();
-  const { data: clientes } = await supabase
-    .from("clientes")
-    .select("*")
-    .eq("activo", true)
-    .order("nombre");
+  const [{ data: clientes }, { data: movimientos }] = await Promise.all([
+    supabase.from("clientes").select("*").eq("activo", true).order("nombre"),
+    supabase.from("movimientos_cuenta").select("entidad_id, tipo, monto, moneda").eq("entidad_tipo", "cliente"),
+  ]);
+
+  // El saldo se calcula siempre desde los movimientos de cuenta corriente, separado por moneda
+  const saldos = calcularSaldos(movimientos ?? []);
 
   return (
     <div>
@@ -34,19 +36,32 @@ export default async function ClientesPage() {
             </tr>
           </thead>
           <tbody>
-            {clientes?.map((c) => (
-              <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
-                <td className="px-4 py-3 font-medium">
-                  <Link href={`/clientes/${c.id}`} className="text-violet-700 hover:underline">
-                    {c.nombre}
-                  </Link>
-                </td>
-                <td className="px-4 py-3">{c.empresa ?? "—"}</td>
-                <td className="px-4 py-3">{c.whatsapp ?? c.telefono ?? "—"}</td>
-                <td className="px-4 py-3">{c.localidad ?? "—"}</td>
-                <td className="px-4 py-3 text-right">${formatearMoneda(c.saldo)}</td>
-              </tr>
-            ))}
+            {clientes?.map((c) => {
+              const s = saldos[c.id] ?? { ars: 0, usd: 0 };
+              const sinSaldo = s.ars === 0 && s.usd === 0;
+              return (
+                <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50/60">
+                  <td className="px-4 py-3 font-medium">
+                    <Link href={`/clientes/${c.id}`} className="text-violet-700 hover:underline">
+                      {c.nombre}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">{c.empresa ?? "—"}</td>
+                  <td className="px-4 py-3">{c.whatsapp ?? c.telefono ?? "—"}</td>
+                  <td className="px-4 py-3">{c.localidad ?? "—"}</td>
+                  <td className="px-4 py-3 text-right">
+                    {sinSaldo ? (
+                      conMoneda(0, "ARS")
+                    ) : (
+                      <>
+                        {s.ars !== 0 && <p className={s.ars > 0 ? "text-red-600" : "text-green-600"}>{conMoneda(s.ars, "ARS")}</p>}
+                        {s.usd !== 0 && <p className={s.usd > 0 ? "text-red-600" : "text-green-600"}>{conMoneda(s.usd, "USD")}</p>}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {(!clientes || clientes.length === 0) && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-neutral-400">
