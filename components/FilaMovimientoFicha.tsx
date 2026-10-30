@@ -3,23 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { formatearMoneda } from "@/lib/format";
+import { conMoneda, normalizarMoneda, Moneda } from "@/lib/monedas";
 
 export default function FilaMovimientoFicha({ m, saldoCorrido }: { m: any; saldoCorrido: number }) {
   const router = useRouter();
   const supabase = createClient();
   const esManual = !m.referencia_tipo;
+  const esCliente = m.entidad_tipo === "cliente";
 
   const [editando, setEditando] = useState(false);
   const [monto, setMonto] = useState(String(m.monto));
   const [fecha, setFecha] = useState(String(m.fecha ?? "").slice(0, 10));
   const [observaciones, setObservaciones] = useState(m.observaciones ?? "");
+  const [moneda, setMoneda] = useState<Moneda>(normalizarMoneda(m.moneda));
   const [guardando, setGuardando] = useState(false);
 
   function empezarEdicion() {
     setMonto(String(m.monto));
     setFecha(String(m.fecha ?? "").slice(0, 10));
     setObservaciones(m.observaciones ?? "");
+    setMoneda(normalizarMoneda(m.moneda));
     setEditando(true);
   }
 
@@ -33,6 +36,7 @@ export default function FilaMovimientoFicha({ m, saldoCorrido }: { m: any; saldo
     if (esManual) {
       cambios.monto = Number(monto);
       if (fecha) cambios.fecha = fecha;
+      if (esCliente) cambios.moneda = moneda;
     }
     const { error } = await supabase.from("movimientos_cuenta").update(cambios).eq("id", m.id);
     setGuardando(false);
@@ -67,6 +71,15 @@ export default function FilaMovimientoFicha({ m, saldoCorrido }: { m: any; saldo
                   <span className="mb-1 block text-neutral-500">Fecha</span>
                   <input type="date" className="input py-1" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                 </label>
+                {esCliente && (
+                  <label className="w-28">
+                    <span className="mb-1 block text-neutral-500">Moneda</span>
+                    <select className="input py-1" value={moneda} onChange={(e) => setMoneda(e.target.value as Moneda)}>
+                      <option value="ARS">$ Pesos</option>
+                      <option value="USD">U$D</option>
+                    </select>
+                  </label>
+                )}
                 <label className="flex-1">
                   <span className="mb-1 block text-neutral-500">Monto</span>
                   <input type="number" className="input no-spinner py-1" value={monto} onChange={(e) => setMonto(e.target.value)} />
@@ -104,9 +117,9 @@ export default function FilaMovimientoFicha({ m, saldoCorrido }: { m: any; saldo
     <tr className="border-b border-neutral-50">
       <td className="py-2">{m.fecha}</td>
       <td className="py-2">{m.observaciones ?? m.referencia_tipo ?? "—"}</td>
-      <td className="py-2 text-right text-red-600">{m.tipo === "cargo" ? `$${formatearMoneda(Number(m.monto))}` : ""}</td>
-      <td className="py-2 text-right text-green-600">{m.tipo === "pago" ? `$${formatearMoneda(Number(m.monto))}` : ""}</td>
-      <td className="py-2 text-right font-medium">${formatearMoneda(saldoCorrido)}</td>
+      <td className="py-2 text-right text-red-600">{m.tipo === "cargo" ? conMoneda(Number(m.monto), m.moneda) : ""}</td>
+      <td className="py-2 text-right text-green-600">{m.tipo === "pago" ? conMoneda(Number(m.monto), m.moneda) : ""}</td>
+      <td className="py-2 text-right font-medium">{conMoneda(saldoCorrido, m.moneda)}</td>
       <td className="no-print py-2 pl-3 text-right">
         <button onClick={empezarEdicion} className="text-xs text-neutral-400 hover:text-violet-600">
           editar
