@@ -208,7 +208,9 @@ export default function NuevoPresupuestoPage() {
         <span className="mb-2 block text-sm font-medium">Cliente</span>
         {cliente ? (
           <div className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2">
-            <span className="font-medium text-violet-700">{cliente.nombre}</span>
+                        <span className="font-medium text-violet-700">
+              {cliente.nombre} {cliente.empresa && <span className="font-normal text-violet-400">({cliente.empresa})</span>}
+            </span>
             <button className="text-xs text-violet-600 underline" onClick={() => setCliente(null)}>
               cambiar
             </button>
