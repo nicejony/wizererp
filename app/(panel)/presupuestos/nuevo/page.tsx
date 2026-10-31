@@ -234,7 +234,7 @@ export default function NuevoPresupuestoPage() {
                       setClienteResultados([]);
                     }}
                   >
-                    {c.nombre}
+                                        {c.nombre} {c.empresa && <span className="text-neutral-400">({c.empresa})</span>}
                   </button>
                 ))}
               </div>
