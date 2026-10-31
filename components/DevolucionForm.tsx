@@ -51,7 +51,8 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
     const { data: nota, error } = await supabase
       .from("documentos")
       .insert({
-        tipo: "nota_credito",
+                tipo: "nota_credito",
+        numero: venta.numero, // misma numeración que la venta de origen
         estado: "borrador",
         cliente_id: venta.cliente_id,
         documento_origen_id: venta.id,
