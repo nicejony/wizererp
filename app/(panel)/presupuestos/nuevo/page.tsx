@@ -47,7 +47,12 @@ export default function NuevoPresupuestoPage() {
   useEffect(() => {
     if (clienteQuery.length < 2) return setClienteResultados([]);
     const t = setTimeout(async () => {
-      const { data } = await supabase.from("clientes").select("*").ilike("nombre", `%${clienteQuery}%`).limit(5);
+            const q = clienteQuery.replace(/[,()%]/g, " ").trim();
+      const { data } = await supabase
+        .from("clientes")
+        .select("*")
+        .or(`nombre.ilike.%${q}%,empresa.ilike.%${q}%`)
+        .limit(8);
       setClienteResultados(data ?? []);
     }, 250);
     return () => clearTimeout(t);
