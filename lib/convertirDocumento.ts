@@ -26,7 +26,8 @@ export async function convertirDocumento(documentoOrigenId: string, nuevoTipo: D
     const { data: nuevo, error: errorNuevo } = await supabase
     .from("documentos")
     .insert({
-      tipo: nuevoTipo,
+            tipo: nuevoTipo,
+      numero: origen.numero, // misma numeración para toda la operación
       estado: "borrador", // se confirma recién abajo, después de cargar los items
       cliente_id: origen.cliente_id,
       vendedor_id: origen.vendedor_id,
