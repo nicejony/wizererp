@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ProductoVariante, Deposito } from "@/lib/types";
+import { ProductoVariante, Deposito, FORMAS_PAGO } from "@/lib/types";
 import { formatearMoneda } from "@/lib/format";
+import { calcularSaldos } from "@/lib/monedas";
 
 interface ItemCompra {
   variante_id: string;
@@ -22,8 +23,10 @@ export default function NuevaCompraPage() {
   const [depositos, setDepositos] = useState<Deposito[]>([]);
   const [proveedorId, setProveedorId] = useState("");
   const [depositoId, setDepositoId] = useState("");
+  const [formaPago, setFormaPago] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [saldoProveedor, setSaldoProveedor] = useState<number | null>(null);
 
   const [items, setItems] = useState<ItemCompra[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
@@ -54,6 +57,20 @@ export default function NuevaCompraPage() {
       .single()
       .then(({ data }) => setTipoCambio(Number(data?.valor) || 1));
   }, []);
+
+  // Saldo actual con el proveedor elegido, para ver cómo impacta la compra
+  useEffect(() => {
+    if (!proveedorId) {
+      setSaldoProveedor(null);
+      return;
+    }
+    supabase
+      .from("movimientos_cuenta")
+      .select("entidad_id, tipo, monto, moneda")
+      .eq("entidad_tipo", "proveedor")
+      .eq("entidad_id", proveedorId)
+      .then(({ data }) => setSaldoProveedor(calcularSaldos(data ?? [])[proveedorId]?.ars ?? 0));
+  }, [proveedorId]);
 
   useEffect(() => {
     if (productoQuery.length < 2) return setProductoResultados([]);
@@ -95,14 +112,15 @@ export default function NuevaCompraPage() {
   }
 
   const total = items.reduce((s, i) => s + i.cantidad * i.costo_unitario, 0);
+  const saldoDespues = (saldoProveedor ?? 0) + total;
 
   async function guardarCompra() {
-    if (!proveedorId || !depositoId || items.length === 0) return;
+    if (!proveedorId || !depositoId || !formaPago || items.length === 0) return;
     setGuardando(true);
 
     const { data: compra, error } = await supabase
       .from("compras")
-      .insert({ proveedor_id: proveedorId, total, observaciones: observaciones || null })
+      .insert({ proveedor_id: proveedorId, total, forma_pago: formaPago, observaciones: observaciones || null })
       .select()
       .single();
 
@@ -169,7 +187,42 @@ export default function NuevaCompraPage() {
               ))}
             </select>
           </label>
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-sm font-medium">Forma de pago *</span>
+            <select className="input" value={formaPago} onChange={(e) => setFormaPago(e.target.value)}>
+              <option value="">Seleccionar...</option>
+              {FORMAS_PAGO.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+            {formaPago && (
+              <span className="mt-1 block text-xs text-neutral-400">
+                {formaPago === "Cuenta Corriente"
+                  ? "Se suma a lo que le debés al proveedor. Los pagos los cargás en Cuentas Corrientes."
+                  : "Ya está pagada: no genera deuda con el proveedor."}
+              </span>
+            )}
+          </label>
         </div>
+
+        {proveedorId && saldoProveedor !== null && (
+          <div className="rounded-lg bg-neutral-50 p-3 text-sm">
+            <p className="text-neutral-500">
+              Saldo actual con este proveedor:{" "}
+              <span className="font-medium text-neutral-800">${formatearMoneda(Math.abs(saldoProveedor))}</span>{" "}
+              {saldoProveedor > 0 ? "(le debés)" : saldoProveedor < 0 ? "(a favor)" : ""}
+            </p>
+            {formaPago === "Cuenta Corriente" && items.length > 0 && (
+              <p className="mt-1 text-neutral-500">
+                Después de esta compra:{" "}
+                <span className="font-medium text-red-600">${formatearMoneda(Math.abs(saldoDespues))}</span>{" "}
+                {saldoDespues > 0 ? "(le debés)" : saldoDespues < 0 ? "(a favor)" : ""}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="relative">
           <span className="mb-1 block text-sm font-medium">Agregar producto</span>
@@ -262,7 +315,7 @@ export default function NuevaCompraPage() {
         </label>
         <button
           onClick={guardarCompra}
-          disabled={!proveedorId || !depositoId || items.length === 0 || guardando}
+          disabled={!proveedorId || !depositoId || !formaPago || items.length === 0 || guardando}
           className="btn-primary"
         >
           {guardando ? "Guardando..." : "Confirmar compra"}
