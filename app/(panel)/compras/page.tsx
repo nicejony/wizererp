@@ -28,6 +28,7 @@ export default async function ComprasPage() {
               <th className="px-4 py-3">N°</th>
               <th className="px-4 py-3">Fecha</th>
               <th className="px-4 py-3">Proveedor</th>
+              <th className="px-4 py-3">Pago</th>
               <th className="px-4 py-3 text-right">Total</th>
             </tr>
           </thead>
@@ -37,12 +38,31 @@ export default async function ComprasPage() {
                 <td className="px-4 py-3 font-mono text-xs">#{c.numero}</td>
                 <td className="px-4 py-3">{c.fecha}</td>
                 <td className="px-4 py-3 font-medium">{c.proveedores?.nombre ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {c.forma_pago === "Cuenta Corriente" ? (
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700">Cta. Cte.</span>
+                      {c.proveedor_id && (
+                        <Link
+                          href={`/cuentas-corrientes/proveedor/${c.proveedor_id}`}
+                          className="text-xs text-neutral-400 hover:text-violet-600 hover:underline no-print"
+                        >
+                          ver cuenta
+                        </Link>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="rounded-full bg-neutral-100 px-2 py-1 text-xs font-medium text-neutral-600">
+                      {c.forma_pago ?? "—"}
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right">${formatearMoneda(c.total)}</td>
               </tr>
             ))}
             {(!compras || compras.length === 0) && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-neutral-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-neutral-400">
                   No hay compras cargadas todavía.
                 </td>
               </tr>
@@ -53,4 +73,3 @@ export default async function ComprasPage() {
     </div>
   );
 }
-
