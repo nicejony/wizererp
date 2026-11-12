@@ -5,14 +5,19 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ProductoVariante, Deposito, FORMAS_PAGO } from "@/lib/types";
 import { formatearMoneda } from "@/lib/format";
-import { calcularSaldos } from "@/lib/monedas";
+import { calcularSaldos, conMoneda, Moneda } from "@/lib/monedas";
 
 interface ItemCompra {
   variante_id: string;
   nombre: string;
   color: string | null;
   cantidad: number;
-  costo_unitario: number;
+  costo_unitario: number; // siempre en la moneda elegida para la compra
+}
+
+function redondear(n: number, moneda: Moneda) {
+  const d = moneda === "USD" ? 10000 : 100;
+  return Math.round(n * d) / d;
 }
 
 export default function NuevaCompraPage() {
@@ -24,14 +29,17 @@ export default function NuevaCompraPage() {
   const [proveedorId, setProveedorId] = useState("");
   const [depositoId, setDepositoId] = useState("");
   const [formaPago, setFormaPago] = useState("");
+  const [monedaCompra, setMonedaCompra] = useState<Moneda>("ARS");
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const [saldoProveedor, setSaldoProveedor] = useState<number | null>(null);
+  const [saldos, setSaldos] = useState<{ ars: number; usd: number } | null>(null);
 
   const [items, setItems] = useState<ItemCompra[]>([]);
   const [productoQuery, setProductoQuery] = useState("");
   const [productoResultados, setProductoResultados] = useState<ProductoVariante[]>([]);
   const [tipoCambio, setTipoCambio] = useState(1);
+
+  const simbolo = monedaCompra === "USD" ? "U$D " : "$";
 
   useEffect(() => {
     supabase
@@ -58,10 +66,10 @@ export default function NuevaCompraPage() {
       .then(({ data }) => setTipoCambio(Number(data?.valor) || 1));
   }, []);
 
-  // Saldo actual con el proveedor elegido, para ver cómo impacta la compra
+  // Saldo actual con el proveedor elegido, en cada moneda, para ver cómo impacta la compra
   useEffect(() => {
     if (!proveedorId) {
-      setSaldoProveedor(null);
+      setSaldos(null);
       return;
     }
     supabase
@@ -69,7 +77,7 @@ export default function NuevaCompraPage() {
       .select("entidad_id, tipo, monto, moneda")
       .eq("entidad_tipo", "proveedor")
       .eq("entidad_id", proveedorId)
-      .then(({ data }) => setSaldoProveedor(calcularSaldos(data ?? [])[proveedorId]?.ars ?? 0));
+      .then(({ data }) => setSaldos(calcularSaldos(data ?? [])[proveedorId] ?? { ars: 0, usd: 0 }));
   }, [proveedorId]);
 
   useEffect(() => {
@@ -86,9 +94,24 @@ export default function NuevaCompraPage() {
     return () => clearTimeout(t);
   }, [productoQuery]);
 
+  // Al cambiar la moneda, los costos ya cargados se convierten con la cotización de hoy
+  function cambiarMoneda(nueva: Moneda) {
+    if (nueva === monedaCompra) return;
+    setItems((prev) =>
+      prev.map((it) => ({
+        ...it,
+        costo_unitario: redondear(nueva === "USD" ? it.costo_unitario / tipoCambio : it.costo_unitario * tipoCambio, nueva),
+      }))
+    );
+    setMonedaCompra(nueva);
+  }
+
   function agregarVariante(v: ProductoVariante) {
-    const costoBase = v.producto?.costo ?? 0;
-    const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambio : costoBase;
+    const base = v.producto?.costo ?? 0;
+    const costoEnUsd = v.producto?.moneda_costo === "USD";
+    let costo = base;
+    if (costoEnUsd && monedaCompra === "ARS") costo = base * tipoCambio;
+    if (!costoEnUsd && monedaCompra === "USD") costo = base / tipoCambio;
     setItems((prev) => [
       ...prev,
       {
@@ -96,7 +119,7 @@ export default function NuevaCompraPage() {
         nombre: v.producto?.nombre ?? "—",
         color: v.color,
         cantidad: 1,
-        costo_unitario: costoEnPesos,
+        costo_unitario: redondear(costo, monedaCompra),
       },
     ]);
     setProductoQuery("");
@@ -112,15 +135,26 @@ export default function NuevaCompraPage() {
   }
 
   const total = items.reduce((s, i) => s + i.cantidad * i.costo_unitario, 0);
-  const saldoDespues = (saldoProveedor ?? 0) + total;
+  const saldoMoneda = saldos ? (monedaCompra === "USD" ? saldos.usd : saldos.ars) : 0;
+  const saldoDespues = saldoMoneda + total;
 
   async function guardarCompra() {
     if (!proveedorId || !depositoId || !formaPago || items.length === 0) return;
     setGuardando(true);
 
+    // Internamente la compra se guarda en pesos (como el resto del sistema), con la cotización usada
+    const aArs = (n: number) => (monedaCompra === "USD" ? n * tipoCambio : n);
+
     const { data: compra, error } = await supabase
       .from("compras")
-      .insert({ proveedor_id: proveedorId, total, forma_pago: formaPago, observaciones: observaciones || null })
+      .insert({
+        proveedor_id: proveedorId,
+        total: aArs(total),
+        forma_pago: formaPago,
+        moneda: monedaCompra,
+        tipo_cambio_aplicado: tipoCambio,
+        observaciones: observaciones || null,
+      })
       .select()
       .single();
 
@@ -134,8 +168,8 @@ export default function NuevaCompraPage() {
       compra_id: compra.id,
       variante_id: i.variante_id,
       cantidad: i.cantidad,
-      costo_unitario: i.costo_unitario,
-      subtotal: i.cantidad * i.costo_unitario,
+      costo_unitario: aArs(i.costo_unitario),
+      subtotal: aArs(i.cantidad * i.costo_unitario),
     }));
     await supabase.from("compra_items").insert(itemsPayload);
 
@@ -161,7 +195,23 @@ export default function NuevaCompraPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold">Nueva compra</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Nueva compra</h1>
+        <div className="flex items-center gap-2 rounded-lg bg-neutral-100 p-1 text-sm">
+          <button
+            onClick={() => cambiarMoneda("ARS")}
+            className={`rounded-md px-3 py-1 font-medium ${monedaCompra === "ARS" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
+          >
+            Pesos (ARS)
+          </button>
+          <button
+            onClick={() => cambiarMoneda("USD")}
+            className={`rounded-md px-3 py-1 font-medium ${monedaCompra === "USD" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
+          >
+            Dólares (USD)
+          </button>
+        </div>
+      </div>
 
       <div className="card mb-4 space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -207,17 +257,37 @@ export default function NuevaCompraPage() {
           </label>
         </div>
 
-        {proveedorId && saldoProveedor !== null && (
+        {monedaCompra === "USD" && (
+          <p className="text-xs text-neutral-400">
+            Compra en dólares: los costos se cargan en U$D. Cotización usada: ${formatearMoneda(tipoCambio)} (la de Configuración).
+          </p>
+        )}
+
+        {proveedorId && saldos && (
           <div className="rounded-lg bg-neutral-50 p-3 text-sm">
             <p className="text-neutral-500">
               Saldo actual con este proveedor:{" "}
-              <span className="font-medium text-neutral-800">${formatearMoneda(Math.abs(saldoProveedor))}</span>{" "}
-              {saldoProveedor > 0 ? "(le debés)" : saldoProveedor < 0 ? "(a favor)" : ""}
+              {saldos.ars === 0 && saldos.usd === 0 ? (
+                <span className="font-medium text-neutral-800">{conMoneda(0, "ARS")}</span>
+              ) : (
+                <>
+                  {saldos.ars !== 0 && (
+                    <span className="font-medium text-neutral-800">
+                      {conMoneda(Math.abs(saldos.ars), "ARS")} {saldos.ars > 0 ? "(le debés)" : "(a favor)"}{" "}
+                    </span>
+                  )}
+                  {saldos.usd !== 0 && (
+                    <span className="font-medium text-neutral-800">
+                      {conMoneda(Math.abs(saldos.usd), "USD")} {saldos.usd > 0 ? "(le debés)" : "(a favor)"}
+                    </span>
+                  )}
+                </>
+              )}
             </p>
             {formaPago === "Cuenta Corriente" && items.length > 0 && (
               <p className="mt-1 text-neutral-500">
-                Después de esta compra:{" "}
-                <span className="font-medium text-red-600">${formatearMoneda(Math.abs(saldoDespues))}</span>{" "}
+                Después de esta compra, en {monedaCompra === "USD" ? "dólares" : "pesos"}:{" "}
+                <span className="font-medium text-red-600">{conMoneda(Math.abs(saldoDespues), monedaCompra)}</span>{" "}
                 {saldoDespues > 0 ? "(le debés)" : saldoDespues < 0 ? "(a favor)" : ""}
               </p>
             )}
@@ -243,7 +313,9 @@ export default function NuevaCompraPage() {
                   <span>
                     {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}
                   </span>
-                  <span className="text-neutral-400">costo: ${formatearMoneda(v.producto?.costo ?? 0)}</span>
+                  <span className="text-neutral-400">
+                    costo: {conMoneda(v.producto?.costo ?? 0, v.producto?.moneda_costo)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -259,8 +331,8 @@ export default function NuevaCompraPage() {
                 <tr>
                   <th className="py-2">Producto</th>
                   <th className="w-24 py-2">Cant.</th>
-                  <th className="w-28 py-2">Costo unit.</th>
-                  <th className="w-24 py-2 text-right">Subtotal</th>
+                  <th className="w-28 py-2">Costo unit. ({monedaCompra === "USD" ? "U$D" : "$"})</th>
+                  <th className="w-28 py-2 text-right">Subtotal</th>
                   <th className="w-8 py-2"></th>
                 </tr>
               </thead>
@@ -287,7 +359,10 @@ export default function NuevaCompraPage() {
                         onChange={(e) => actualizarItem(idx, "costo_unitario", Number(e.target.value))}
                       />
                     </td>
-                    <td className="py-2 text-right font-medium">${formatearMoneda(item.cantidad * item.costo_unitario)}</td>
+                    <td className="py-2 text-right font-medium">
+                      {simbolo}
+                      {formatearMoneda(item.cantidad * item.costo_unitario)}
+                    </td>
                     <td className="py-2 text-center">
                       <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
                         ✕
@@ -302,7 +377,10 @@ export default function NuevaCompraPage() {
           <div className="mt-4 flex justify-end border-t border-neutral-100 pt-4">
             <div className="text-right">
               <p className="text-sm text-neutral-500">Total</p>
-              <p className="text-2xl font-semibold text-violet-700">${formatearMoneda(total)}</p>
+              <p className="text-2xl font-semibold text-violet-700">
+                {simbolo}
+                {formatearMoneda(total)}
+              </p>
             </div>
           </div>
         </div>
