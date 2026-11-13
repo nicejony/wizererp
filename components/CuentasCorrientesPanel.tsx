@@ -38,7 +38,6 @@ function MovimientoFila({ m }: { m: any }) {
   const router = useRouter();
   const supabase = createClient();
   const esManual = !m.referencia_tipo;
-  const esCliente = m.entidad_tipo === "cliente";
 
   const [editando, setEditando] = useState(false);
   const [monto, setMonto] = useState(String(m.monto));
@@ -65,7 +64,7 @@ function MovimientoFila({ m }: { m: any }) {
     if (esManual) {
       cambios.monto = Number(monto);
       if (fecha) cambios.fecha = fecha;
-      if (esCliente) cambios.moneda = moneda;
+      cambios.moneda = moneda;
     }
     const { error } = await supabase.from("movimientos_cuenta").update(cambios).eq("id", m.id);
     setGuardando(false);
@@ -98,15 +97,13 @@ function MovimientoFila({ m }: { m: any }) {
               <span className="mb-1 block text-neutral-500">Fecha</span>
               <input type="date" className="input py-1" value={fecha} onChange={(e) => setFecha(e.target.value)} />
             </label>
-            {esCliente && (
-              <label className="w-28">
-                <span className="mb-1 block text-neutral-500">Moneda</span>
-                <select className="input py-1" value={moneda} onChange={(e) => setMoneda(e.target.value as Moneda)}>
-                  <option value="ARS">$ Pesos</option>
-                  <option value="USD">U$D</option>
-                </select>
-              </label>
-            )}
+            <label className="w-28">
+              <span className="mb-1 block text-neutral-500">Moneda</span>
+              <select className="input py-1" value={moneda} onChange={(e) => setMoneda(e.target.value as Moneda)}>
+                <option value="ARS">$ Pesos</option>
+                <option value="USD">U$D</option>
+              </select>
+            </label>
             <label className="flex-1">
               <span className="mb-1 block text-neutral-500">Monto</span>
               <input type="number" className="input no-spinner py-1" value={monto} onChange={(e) => setMonto(e.target.value)} />
@@ -232,15 +229,13 @@ function Seccion({
 
                 {abiertoId === e.id && (
                   <div className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-neutral-50 p-3 no-print">
-                    {entidadTipo === "cliente" && (
-                      <label className="w-28">
-                        <span className="mb-1 block text-xs text-neutral-500">Moneda</span>
-                        <select className="input py-1" value={moneda} onChange={(ev) => setMoneda(ev.target.value as Moneda)}>
-                          <option value="ARS">$ Pesos</option>
-                          <option value="USD">U$D</option>
-                        </select>
-                      </label>
-                    )}
+                    <label className="w-28">
+                      <span className="mb-1 block text-xs text-neutral-500">Moneda</span>
+                      <select className="input py-1" value={moneda} onChange={(ev) => setMoneda(ev.target.value as Moneda)}>
+                        <option value="ARS">$ Pesos</option>
+                        <option value="USD">U$D</option>
+                      </select>
+                    </label>
                     <label className="min-w-[7rem] flex-1">
                       <span className="mb-1 block text-xs text-neutral-500">Monto ({moneda === "USD" ? "U$D" : "$"})</span>
                       <input
@@ -312,7 +307,7 @@ export default function CuentasCorrientesPanel({
   const [guardando, setGuardando] = useState(false);
   const [historialAbierto, setHistorialAbierto] = useState<string | null>(null);
 
-  // Al abrir el cobro, la moneda arranca en la de la deuda del cliente (dólares si solo debe dólares)
+  // Al abrir el cobro/pago, la moneda arranca en la de la deuda (dólares si solo se debe en dólares)
   function abrirCobro(e: Entidad) {
     if (abiertoId === e.id) {
       setAbiertoId(null);
@@ -335,7 +330,7 @@ export default function CuentasCorrientesPanel({
       entidad_id: entidadId,
       tipo: "pago",
       monto: Number(monto),
-      moneda: entidadTipo === "cliente" ? moneda : "ARS",
+      moneda,
       observaciones: observaciones || null,
       usuario_id: user?.id ?? null,
     });
