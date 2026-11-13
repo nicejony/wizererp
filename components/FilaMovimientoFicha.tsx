@@ -9,7 +9,6 @@ export default function FilaMovimientoFicha({ m, saldoCorrido }: { m: any; saldo
   const router = useRouter();
   const supabase = createClient();
   const esManual = !m.referencia_tipo;
-  const esCliente = m.entidad_tipo === "cliente";
 
   const [editando, setEditando] = useState(false);
   const [monto, setMonto] = useState(String(m.monto));
@@ -36,7 +35,7 @@ export default function FilaMovimientoFicha({ m, saldoCorrido }: { m: any; saldo
     if (esManual) {
       cambios.monto = Number(monto);
       if (fecha) cambios.fecha = fecha;
-      if (esCliente) cambios.moneda = moneda;
+      cambios.moneda = moneda;
     }
     const { error } = await supabase.from("movimientos_cuenta").update(cambios).eq("id", m.id);
     setGuardando(false);
@@ -71,15 +70,13 @@ export default function FilaMovimientoFicha({ m, saldoCorrido }: { m: any; saldo
                   <span className="mb-1 block text-neutral-500">Fecha</span>
                   <input type="date" className="input py-1" value={fecha} onChange={(e) => setFecha(e.target.value)} />
                 </label>
-                {esCliente && (
-                  <label className="w-28">
-                    <span className="mb-1 block text-neutral-500">Moneda</span>
-                    <select className="input py-1" value={moneda} onChange={(e) => setMoneda(e.target.value as Moneda)}>
-                      <option value="ARS">$ Pesos</option>
-                      <option value="USD">U$D</option>
-                    </select>
-                  </label>
-                )}
+                <label className="w-28">
+                  <span className="mb-1 block text-neutral-500">Moneda</span>
+                  <select className="input py-1" value={moneda} onChange={(e) => setMoneda(e.target.value as Moneda)}>
+                    <option value="ARS">$ Pesos</option>
+                    <option value="USD">U$D</option>
+                  </select>
+                </label>
                 <label className="flex-1">
                   <span className="mb-1 block text-neutral-500">Monto</span>
                   <input type="number" className="input no-spinner py-1" value={monto} onChange={(e) => setMonto(e.target.value)} />
