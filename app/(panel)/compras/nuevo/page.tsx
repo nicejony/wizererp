@@ -30,6 +30,8 @@ export default function NuevaCompraPage() {
   const [depositoId, setDepositoId] = useState("");
   const [formaPago, setFormaPago] = useState("");
   const [monedaCompra, setMonedaCompra] = useState<Moneda>("ARS");
+  // "default": no se tocó nada · "auto": pasó a dólares sola por un producto con costo en U$D · "manual": la eligió el usuario
+  const [origenMoneda, setOrigenMoneda] = useState<"default" | "auto" | "manual">("default");
   const [observaciones, setObservaciones] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [saldos, setSaldos] = useState<{ ars: number; usd: number } | null>(null);
@@ -94,8 +96,8 @@ export default function NuevaCompraPage() {
     return () => clearTimeout(t);
   }, [productoQuery]);
 
-  // Al cambiar la moneda, los costos ya cargados se convierten con la cotización de hoy
-  function cambiarMoneda(nueva: Moneda) {
+  // Cambia la moneda de la compra y convierte los costos ya cargados con la cotización de hoy
+  function aplicarMoneda(nueva: Moneda) {
     if (nueva === monedaCompra) return;
     setItems((prev) =>
       prev.map((it) => ({
@@ -106,12 +108,28 @@ export default function NuevaCompraPage() {
     setMonedaCompra(nueva);
   }
 
+  // Elección hecha por el usuario con los botones: se respeta aunque el producto tenga costo en dólares
+  function elegirMoneda(nueva: Moneda) {
+    setOrigenMoneda("manual");
+    aplicarMoneda(nueva);
+  }
+
   function agregarVariante(v: ProductoVariante) {
     const base = v.producto?.costo ?? 0;
     const costoEnUsd = v.producto?.moneda_costo === "USD";
+
+    // Un producto con costo en U$D pasa la compra a dólares, salvo que el usuario haya elegido pesos a mano
+    const pasaAUsd = costoEnUsd && monedaCompra === "ARS" && origenMoneda !== "manual";
+    const monedaDestino: Moneda = pasaAUsd ? "USD" : monedaCompra;
+    if (pasaAUsd) {
+      aplicarMoneda("USD");
+      setOrigenMoneda("auto");
+    }
+
     let costo = base;
-    if (costoEnUsd && monedaCompra === "ARS") costo = base * tipoCambio;
-    if (!costoEnUsd && monedaCompra === "USD") costo = base / tipoCambio;
+    if (costoEnUsd && monedaDestino === "ARS") costo = base * tipoCambio;
+    if (!costoEnUsd && monedaDestino === "USD") costo = base / tipoCambio;
+
     setItems((prev) => [
       ...prev,
       {
@@ -119,7 +137,7 @@ export default function NuevaCompraPage() {
         nombre: v.producto?.nombre ?? "—",
         color: v.color,
         cantidad: 1,
-        costo_unitario: redondear(costo, monedaCompra),
+        costo_unitario: redondear(costo, monedaDestino),
       },
     ]);
     setProductoQuery("");
@@ -199,13 +217,13 @@ export default function NuevaCompraPage() {
         <h1 className="text-2xl font-semibold">Nueva compra</h1>
         <div className="flex items-center gap-2 rounded-lg bg-neutral-100 p-1 text-sm">
           <button
-            onClick={() => cambiarMoneda("ARS")}
+            onClick={() => elegirMoneda("ARS")}
             className={`rounded-md px-3 py-1 font-medium ${monedaCompra === "ARS" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
           >
             Pesos (ARS)
           </button>
           <button
-            onClick={() => cambiarMoneda("USD")}
+            onClick={() => elegirMoneda("USD")}
             className={`rounded-md px-3 py-1 font-medium ${monedaCompra === "USD" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
           >
             Dólares (USD)
@@ -258,8 +276,12 @@ export default function NuevaCompraPage() {
         </div>
 
         {monedaCompra === "USD" && (
-          <p className="text-xs text-neutral-400">
-            Compra en dólares: los costos se cargan en U$D. Cotización usada: ${formatearMoneda(tipoCambio)} (la de Configuración).
+          <p className="rounded-lg bg-violet-50 p-2 text-xs text-violet-700">
+            {origenMoneda === "auto"
+              ? "La compra pasó a dólares porque el producto tiene el costo en U$D. Si la querés en pesos, tocá «Pesos (ARS)» arriba. "
+              : "Compra en dólares: "}
+            Los costos se cargan en U$D y la deuda con el proveedor queda en U$D. Cotización usada: ${formatearMoneda(tipoCambio)} (la de
+            Configuración).
           </p>
         )}
 
