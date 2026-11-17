@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 import BotonImprimir from "@/components/BotonImprimir";
+import { construirPDFRemito, guardarOCompartirPDF } from "@/lib/pdfDocumentos";
 
 interface ItemRemito {
   id: string;
@@ -87,6 +88,30 @@ export default function RemitoDetalle({ documento, itemsIniciales }: { documento
 
   const condicionVenta = documento.forma_pago === "Cuenta Corriente" ? "Cta. Cte." : "Contado";
 
+  // Genera el remito en PDF con lo que está en pantalla (incluye cambios sin guardar) y abre el menú de compartir
+  async function compartirPDF() {
+    const doc = construirPDFRemito({
+      numero: documento.numero,
+      fecha: documento.fecha,
+      remitente,
+      cliente: {
+        nombre: cliente?.nombre ?? "—",
+        direccion: cliente?.direccion ?? "—",
+        localidad: cliente?.localidad ?? "—",
+        cuit: cliente?.cuit ?? "—",
+        condicion_iva: cliente?.condicion_iva ?? "Consumidor Final",
+      },
+      condicionVenta,
+      items: items.map((i) => ({
+        cantidad: i.cantidad_editada ?? i.cantidad,
+        descripcion: i.descripcion_editada ?? i.nombreBase,
+      })),
+      bultos,
+      transportista,
+    });
+    await guardarOCompartirPDF(doc, `remito-${documento.numero}.pdf`, `Remito ${documento.numero}`);
+  }
+
   return (
     <div className="max-w-3xl">
       <div className="no-print mb-6 flex items-center justify-between">
@@ -96,9 +121,12 @@ export default function RemitoDetalle({ documento, itemsIniciales }: { documento
           </Link>
           <h1 className="text-2xl font-semibold">Remito #{documento.numero}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <button onClick={guardarCambios} disabled={guardando} className="btn-secondary">
             {guardando ? "Guardando..." : "Guardar cambios"}
+          </button>
+          <button onClick={compartirPDF} className="btn-secondary">
+            📄 PDF
           </button>
           <BotonImprimir />
           <DocumentoAcciones documentoId={documento.id} tipo={documento.tipo} estado={documento.estado} clienteId={documento.cliente_id} />
