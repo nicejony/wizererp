@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ProductoVariante, TipoPrecio, FORMAS_PAGO } from "@/lib/types";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
 import { formatearMoneda } from "@/lib/format";
+import { construirPDFDocumento, guardarOCompartirPDF } from "@/lib/pdfDocumentos";
 
 interface ItemRow {
   id?: string;
@@ -194,6 +195,31 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
     router.refresh();
   }
 
+  // Genera el documento en PDF y abre el menú de compartir (imprimir, WhatsApp, guardar...)
+  async function compartirPDF() {
+    const sim = monedaDoc === "USD" ? "U$D " : "$";
+    const doc = construirPDFDocumento({
+      titulo: `${ETIQUETAS[documento.tipo]} N° ${documento.numero}`,
+      subtitulo: monedaDoc === "USD" ? `Vendido en U$D (cotización $${formatearMoneda(tipoCambioDoc)})` : "",
+      fecha: documento.fecha,
+      cliente: documento.clientes?.nombre ?? "—",
+      empresa: documento.clientes?.empresa ?? null,
+      telefono: documento.clientes?.whatsapp ?? null,
+      formaPago: documento.forma_pago ?? null,
+      items: items.map((i) => ({
+        codigo: i.codigo,
+        nombre: i.nombre + (i.color ? ` — ${i.color}` : ""),
+        cantidad: i.cantidad,
+        precio: `${sim}${formatearMoneda(aMonedaDoc(i.precio_unitario))}`,
+        descuento: i.descuento_porcentaje,
+        subtotal: `${sim}${formatearMoneda(aMonedaDoc(i.subtotal))}`,
+      })),
+      total: `${sim}${formatearMoneda(aMonedaDoc(total))}`,
+      observaciones: observaciones || null,
+    });
+    await guardarOCompartirPDF(doc, `${documento.tipo}-${documento.numero}.pdf`, `${ETIQUETAS[documento.tipo]} ${documento.numero}`);
+  }
+
   return (
     <div className="max-w-3xl">
       <div className="no-print mb-6 flex items-center justify-between">
@@ -206,7 +232,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
             {ETIQUETAS[documento.tipo]} #{documento.numero}
           </h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           {puedeEditar && !editando && (
             <button onClick={() => setEditando(true)} className="btn-secondary">
               Editar
@@ -217,6 +243,9 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
               {guardando ? "Guardando..." : "Guardar cambios"}
             </button>
           )}
+          <button onClick={compartirPDF} className="btn-secondary">
+            📄 PDF
+          </button>
           <button onClick={() => window.print()} className="btn-secondary">
             🖨️ Imprimir
           </button>
