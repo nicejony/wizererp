@@ -103,7 +103,7 @@ export default function DevolucionForm({ venta, items }: { venta: any; items: It
         {venta.forma_pago === "Cuenta Corriente" && " y el saldo del cliente se reduce en la misma operación"}.
         {monedaDoc === "USD" && (
           <span className="ml-1 font-medium text-violet-700">
-            Esta venta fue en U$D — la devolución también se calcula en dólares (cotiz. ${formatearMoneda(tipoCambioDoc)}).
+            Esta venta fue en U$D — la devolución también se calcula en dólares.
           </span>
         )}
       </p>
