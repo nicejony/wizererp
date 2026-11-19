@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Producto, ProductoVariante, Deposito, VarianteStock, Categoria } from "@/lib/types";
 import FotoProductoUploader from "@/components/FotoProductoUploader";
+import PreciosUsdProducto from "@/components/PreciosUsdProducto";
+
 
 export default function ProductoEditor({
   producto,
