@@ -16,6 +16,8 @@ interface FilaExcel {
   "Precio Mayorista"?: number;
   "Precio Minorista"?: number;
   "Moneda Venta (ARS/USD)"?: string;
+  "Precio Mayorista USD"?: number;
+  "Precio Minorista USD"?: number;
   Color?: string;
   "Stock inicial"?: number;
   "Stock mínimo"?: number;
@@ -31,6 +33,8 @@ interface GrupoProducto {
   precio_mayorista: number;
   precio_minorista: number;
   moneda_venta: string;
+  precio_mayorista_usd: number | null;
+  precio_minorista_usd: number | null;
   colores: { color: string; stock: number; stock_minimo: number }[];
 }
 
@@ -52,9 +56,11 @@ export default function ImportarProductosPage() {
         Rodado: "20",
         Costo: 100,
         "Moneda Costo (ARS/USD)": "USD",
-        "Precio Mayorista": 250,
-        "Precio Minorista": 300,
-        "Moneda Venta (ARS/USD)": "USD",
+        "Precio Mayorista": 250000,
+        "Precio Minorista": 300000,
+        "Moneda Venta (ARS/USD)": "ARS",
+        "Precio Mayorista USD": 250,
+        "Precio Minorista USD": 300,
         Color: "Negro",
         "Stock inicial": 10,
         "Stock mínimo": 2,
@@ -66,9 +72,11 @@ export default function ImportarProductosPage() {
         Rodado: "20",
         Costo: 100,
         "Moneda Costo (ARS/USD)": "USD",
-        "Precio Mayorista": 250,
-        "Precio Minorista": 300,
-        "Moneda Venta (ARS/USD)": "USD",
+        "Precio Mayorista": 250000,
+        "Precio Minorista": 300000,
+        "Moneda Venta (ARS/USD)": "ARS",
+        "Precio Mayorista USD": 250,
+        "Precio Minorista USD": 300,
         Color: "Violeta",
         "Stock inicial": 5,
         "Stock mínimo": 2,
@@ -85,6 +93,8 @@ export default function ImportarProductosPage() {
       { wch: 20 },
       { wch: 16 },
       { wch: 16 },
+      { wch: 20 },
+      { wch: 20 },
       { wch: 20 },
       { wch: 14 },
       { wch: 12 },
@@ -117,6 +127,8 @@ export default function ImportarProductosPage() {
         }
         const codigo = String(fila["Código"]).trim();
         if (!mapa[codigo]) {
+          const mayoristaUsd = Number(fila["Precio Mayorista USD"]);
+          const minoristaUsd = Number(fila["Precio Minorista USD"]);
           mapa[codigo] = {
             codigo,
             nombre: String(fila["Nombre"]).trim(),
@@ -127,6 +139,8 @@ export default function ImportarProductosPage() {
             precio_mayorista: Number(fila["Precio Mayorista"]) || 0,
             precio_minorista: Number(fila["Precio Minorista"]) || 0,
             moneda_venta: (fila["Moneda Venta (ARS/USD)"] || "ARS").toString().toUpperCase() === "USD" ? "USD" : "ARS",
+            precio_mayorista_usd: mayoristaUsd > 0 ? mayoristaUsd : null,
+            precio_minorista_usd: minoristaUsd > 0 ? minoristaUsd : null,
             colores: [],
           };
         }
@@ -150,6 +164,7 @@ export default function ImportarProductosPage() {
 
     const { data: depositoPrincipal } = await supabase.from("depositos").select("id").eq("tipo", "principal").single();
 
+    // Traemos las categorías existentes para no duplicar rubros que ya existen
     const { data: categoriasExistentes } = await supabase.from("categorias").select("id, nombre");
     const categoriaPorNombre: Record<string, string> = {};
     for (const c of categoriasExistentes ?? []) {
@@ -162,6 +177,7 @@ export default function ImportarProductosPage() {
     for (const grupo of grupos) {
       setProgreso(`Cargando ${grupo.codigo}...`);
 
+      // Resolver el rubro: si ya existe lo reutilizamos, si no existe lo creamos
       let categoriaId: string | null = null;
       if (grupo.rubro) {
         const clave = grupo.rubro.toLowerCase();
@@ -192,6 +208,8 @@ export default function ImportarProductosPage() {
           precio_mayorista: grupo.precio_mayorista,
           precio_minorista: grupo.precio_minorista,
           moneda_venta: grupo.moneda_venta,
+          precio_mayorista_usd: grupo.precio_mayorista_usd,
+          precio_minorista_usd: grupo.precio_minorista_usd,
         })
         .select()
         .single();
@@ -241,7 +259,8 @@ export default function ImportarProductosPage() {
         <p className="text-sm text-neutral-500">
           Cada fila del Excel es un color. Si un producto tiene varios colores, repetí el mismo "Código" en varias
           filas — el sistema los agrupa solo. La columna "Rubro" es opcional: si escribís un rubro que ya existe lo
-          reutiliza, y si es nuevo lo crea automáticamente.
+          reutiliza, y si es nuevo lo crea automáticamente. Las columnas "Precio Mayorista USD" y "Precio Minorista
+          USD" también son opcionales: son los precios de venta en dólares para los presupuestos en U$D.
         </p>
         <button onClick={descargarPlantilla} className="btn-secondary">
           ⬇️ Descargar plantilla de ejemplo
@@ -271,7 +290,7 @@ export default function ImportarProductosPage() {
             total
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-sm">
+            <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-neutral-100 text-left text-neutral-500">
                 <tr>
                   <th className="py-2">Código</th>
@@ -280,6 +299,7 @@ export default function ImportarProductosPage() {
                   <th className="py-2">Colores</th>
                   <th className="py-2 text-right">Costo</th>
                   <th className="py-2 text-right">P. Minorista</th>
+                  <th className="py-2 text-right">P. Minor. U$D</th>
                 </tr>
               </thead>
               <tbody>
@@ -297,6 +317,7 @@ export default function ImportarProductosPage() {
                     <td className="py-2 text-right">
                       {g.precio_minorista} {g.moneda_venta}
                     </td>
+                    <td className="py-2 text-right">{g.precio_minorista_usd ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
