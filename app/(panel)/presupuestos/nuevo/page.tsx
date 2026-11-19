@@ -5,17 +5,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Cliente, DocumentoItem, ProductoVariante, TipoPrecio, FORMAS_PAGO } from "@/lib/types";
 import { formatearMoneda } from "@/lib/format";
+import { precioEnPesos } from "@/lib/precios";
+import InputPrecio from "@/components/InputPrecio";
 
 type MonedaDoc = "ARS" | "USD";
-
-function precioSegunTipo(v: ProductoVariante, tipo: TipoPrecio, tipoCambio: number): number {
-  const p = v.producto!;
-  let precio: number;
-  if (tipo === "mayorista") precio = p.precio_mayorista;
-  else if (tipo === "promocion") precio = p.precio_promocion ?? p.precio_minorista;
-  else precio = p.precio_minorista; // minorista o manual
-  return p.moneda_venta === "USD" ? precio * tipoCambio : precio;
-}
+type ItemPresupuesto = DocumentoItem & { tipoPrecio: TipoPrecio; sinPrecioUsd?: boolean };
 
 export default function NuevoPresupuestoPage() {
   const router = useRouter();
@@ -27,11 +21,12 @@ export default function NuevoPresupuestoPage() {
 
   const [productoQuery, setProductoQuery] = useState("");
   const [productoResultados, setProductoResultados] = useState<ProductoVariante[]>([]);
-  const [items, setItems] = useState<(DocumentoItem & { tipoPrecio: TipoPrecio })[]>([]);
+  const [items, setItems] = useState<ItemPresupuesto[]>([]);
 
   const [observaciones, setObservaciones] = useState("");
   const [formaPago, setFormaPago] = useState("");
   const [guardando, setGuardando] = useState(false);
+  // Cotización de Configuración: solo se usa por dentro para guardar el equivalente en pesos, no se muestra
   const [tipoCambio, setTipoCambio] = useState(1);
   const [monedaDocumento, setMonedaDocumento] = useState<MonedaDoc>("ARS");
 
@@ -47,7 +42,7 @@ export default function NuevoPresupuestoPage() {
   useEffect(() => {
     if (clienteQuery.length < 2) return setClienteResultados([]);
     const t = setTimeout(async () => {
-            const q = clienteQuery.replace(/[,()%]/g, " ").trim();
+      const q = clienteQuery.replace(/[,()%]/g, " ").trim();
       const { data } = await supabase
         .from("clientes")
         .select("*")
@@ -72,6 +67,7 @@ export default function NuevoPresupuestoPage() {
     return () => clearTimeout(t);
   }, [productoQuery]);
 
+  // Todo se guarda por dentro en pesos; estas dos funciones solo convierten para mostrar y para guardar lo que se escribe
   function aMonedaDoc(montoArs: number): number {
     return monedaDocumento === "USD" ? montoArs / tipoCambio : montoArs;
   }
@@ -79,6 +75,31 @@ export default function NuevoPresupuestoPage() {
     return monedaDocumento === "USD" ? montoEnMonedaDoc * tipoCambio : montoEnMonedaDoc;
   }
   const simboloMoneda = monedaDocumento === "USD" ? "U$D" : "$";
+
+  function recalcularSubtotal(item: ItemPresupuesto): ItemPresupuesto {
+    const bruto = item.cantidad * item.precio_unitario;
+    return { ...item, subtotal: bruto - (bruto * item.descuento_porcentaje) / 100 };
+  }
+
+  // Pone en un renglón el precio de la lista elegida. En dólares usa el precio en U$D del producto;
+  // si el producto no lo tiene cargado, el precio queda en blanco para completarlo a mano.
+  function aplicarLista(item: ItemPresupuesto, tipo: TipoPrecio, enUsd: boolean): ItemPresupuesto {
+    const producto = item.variante?.producto;
+    if (!producto || tipo === "manual") return { ...item, tipoPrecio: tipo, sinPrecioUsd: false };
+    const precio = precioEnPesos(producto, tipo, tipoCambio, enUsd);
+    if (precio === null) return recalcularSubtotal({ ...item, tipoPrecio: tipo, precio_unitario: 0, sinPrecioUsd: true });
+    return recalcularSubtotal({ ...item, tipoPrecio: tipo, precio_unitario: precio, sinPrecioUsd: false });
+  }
+
+  function cambiarMoneda(nueva: MonedaDoc) {
+    if (nueva === monedaDocumento) return;
+    setMonedaDocumento(nueva);
+    setItems((prev) => prev.map((item) => (item.tipoPrecio === "manual" ? item : aplicarLista(item, item.tipoPrecio, nueva === "USD"))));
+  }
+
+  function precioEnLista(v: ProductoVariante): number | null {
+    return v.producto ? precioEnPesos(v.producto, "mayorista", tipoCambio, monedaDocumento === "USD") : null;
+  }
 
   function agregarVariante(v: ProductoVariante) {
     setItems((prev) => {
@@ -90,36 +111,29 @@ export default function NuevoPresupuestoPage() {
             : i
         );
       }
-      const precio = precioSegunTipo(v, "mayorista", tipoCambio);
       const costoBase = v.producto?.costo ?? 0;
       const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambio : costoBase;
-      return [
-        ...prev,
-        {
-          variante_id: v.id,
-          variante: v,
-          cantidad: 1,
-          precio_unitario: precio,
-          costo_unitario: costoEnPesos,
-          descuento_porcentaje: 0,
-          subtotal: precio,
-          tipoPrecio: "mayorista",
-        },
-      ];
+      const nuevo: ItemPresupuesto = {
+        variante_id: v.id,
+        variante: v,
+        cantidad: 1,
+        precio_unitario: 0,
+        costo_unitario: costoEnPesos,
+        descuento_porcentaje: 0,
+        subtotal: 0,
+        tipoPrecio: "mayorista",
+      };
+      return [...prev, aplicarLista(nuevo, "mayorista", monedaDocumento === "USD")];
     });
     setProductoQuery("");
     setProductoResultados([]);
-  }
-
-  function recalcularSubtotal(item: typeof items[number]): typeof items[number] {
-    const bruto = item.cantidad * item.precio_unitario;
-    return { ...item, subtotal: bruto - (bruto * item.descuento_porcentaje) / 100 };
   }
 
   function actualizarItem(idx: number, campo: "cantidad" | "descuento_porcentaje", valor: number) {
     setItems((prev) => prev.map((item, i) => (i === idx ? recalcularSubtotal({ ...item, [campo]: valor }) : item)));
   }
 
+  // El precio manual se escribe en la moneda del documento, pero se guarda siempre en ARS
   function actualizarPrecioManual(idx: number, valorEnMonedaDoc: number) {
     setItems((prev) =>
       prev.map((item, i) => (i === idx ? recalcularSubtotal({ ...item, precio_unitario: aArs(valorEnMonedaDoc) }) : item))
@@ -127,13 +141,7 @@ export default function NuevoPresupuestoPage() {
   }
 
   function cambiarTipoPrecio(idx: number, tipo: TipoPrecio) {
-    setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== idx || !item.variante) return item;
-        const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.variante, tipo, tipoCambio);
-        return recalcularSubtotal({ ...item, tipoPrecio: tipo, precio_unitario: nuevoPrecio });
-      })
-    );
+    setItems((prev) => prev.map((item, i) => (i === idx ? aplicarLista(item, tipo, monedaDocumento === "USD") : item)));
   }
 
   function quitarItem(idx: number) {
@@ -144,6 +152,7 @@ export default function NuevoPresupuestoPage() {
 
   async function guardarPresupuesto() {
     if (!cliente || items.length === 0) return;
+    if (items.some((i) => i.precio_unitario === 0) && !confirm("Hay productos con precio 0. ¿Guardar igual?")) return;
     setGuardando(true);
 
     const { data: documento, error } = await supabase
@@ -190,13 +199,13 @@ export default function NuevoPresupuestoPage() {
         <h1 className="text-2xl font-semibold">Nuevo presupuesto</h1>
         <div className="flex items-center gap-2 rounded-lg bg-neutral-100 p-1 text-sm">
           <button
-            onClick={() => setMonedaDocumento("ARS")}
+            onClick={() => cambiarMoneda("ARS")}
             className={`rounded-md px-3 py-1 font-medium ${monedaDocumento === "ARS" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
           >
             Pesos (ARS)
           </button>
           <button
-            onClick={() => setMonedaDocumento("USD")}
+            onClick={() => cambiarMoneda("USD")}
             className={`rounded-md px-3 py-1 font-medium ${monedaDocumento === "USD" ? "bg-white text-violet-700 shadow-sm" : "text-neutral-500"}`}
           >
             Dólares (USD)
@@ -204,11 +213,12 @@ export default function NuevoPresupuestoPage() {
         </div>
       </div>
 
+      {/* Cliente */}
       <div className="card mb-4">
         <span className="mb-2 block text-sm font-medium">Cliente</span>
         {cliente ? (
           <div className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2">
-                        <span className="font-medium text-violet-700">
+            <span className="font-medium text-violet-700">
               {cliente.nombre} {cliente.empresa && <span className="font-normal text-violet-400">({cliente.empresa})</span>}
             </span>
             <button className="text-xs text-violet-600 underline" onClick={() => setCliente(null)}>
@@ -220,7 +230,7 @@ export default function NuevoPresupuestoPage() {
             <input
               autoFocus
               className="input"
-              placeholder="Buscar cliente por nombre..."
+              placeholder="Buscar cliente por nombre o empresa..."
               value={clienteQuery}
               onChange={(e) => setClienteQuery(e.target.value)}
             />
@@ -236,7 +246,7 @@ export default function NuevoPresupuestoPage() {
                       setClienteResultados([]);
                     }}
                   >
-                                        {c.nombre} {c.empresa && <span className="text-neutral-400">({c.empresa})</span>}
+                    {c.nombre} {c.empresa && <span className="text-neutral-400">({c.empresa})</span>}
                   </button>
                 ))}
               </div>
@@ -245,6 +255,7 @@ export default function NuevoPresupuestoPage() {
         )}
       </div>
 
+      {/* Buscador de productos (por variante/color) */}
       <div className="card mb-4">
         <span className="mb-2 block text-sm font-medium">Agregar productos</span>
         <div className="relative">
@@ -256,26 +267,35 @@ export default function NuevoPresupuestoPage() {
           />
           {productoResultados.length > 0 && (
             <div className="absolute z-10 mt-1 w-full rounded-lg border border-neutral-100 bg-white shadow-lg">
-              {productoResultados.map((v) => (
-                <button
-                  key={v.id}
-                  className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-neutral-50"
-                  onClick={() => agregarVariante(v)}
-                >
-                  <span>
-                    {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}{" "}
-                    <span className="text-neutral-400">({v.producto?.codigo})</span>
-                  </span>
-                  <span className="font-medium">
-                    {simboloMoneda}{formatearMoneda(aMonedaDoc(v.producto?.precio_mayorista ?? 0))}
-                  </span>
-                </button>
-              ))}
+              {productoResultados.map((v) => {
+                const precioLista = precioEnLista(v);
+                return (
+                  <button
+                    key={v.id}
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                    onClick={() => agregarVariante(v)}
+                  >
+                    <span>
+                      {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}{" "}
+                      <span className="text-neutral-400">({v.producto?.codigo})</span>
+                    </span>
+                    {precioLista === null ? (
+                      <span className="text-xs text-amber-600">sin precio en U$D</span>
+                    ) : (
+                      <span className="font-medium">
+                        {simboloMoneda}
+                        {formatearMoneda(aMonedaDoc(precioLista))}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
+      {/* Items */}
       <div className="card mb-4 overflow-x-auto p-0">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="border-b border-neutral-100 bg-neutral-50 text-left text-neutral-500">
@@ -320,14 +340,15 @@ export default function NuevoPresupuestoPage() {
                   </select>
                 </td>
                 <td className="px-3 py-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    disabled={item.tipoPrecio !== "manual"}
-                    className="input no-spinner py-1 disabled:bg-neutral-50 disabled:text-neutral-500"
-                    value={aMonedaDoc(item.precio_unitario).toFixed(2)}
-                    onChange={(e) => actualizarPrecioManual(idx, Number(e.target.value))}
+                  <InputPrecio
+                    valor={aMonedaDoc(item.precio_unitario)}
+                    onCambio={(v) => actualizarPrecioManual(idx, v)}
+                    deshabilitado={item.tipoPrecio !== "manual" && !item.sinPrecioUsd}
+                    resaltar={!!item.sinPrecioUsd && item.precio_unitario === 0}
                   />
+                  {item.sinPrecioUsd && item.precio_unitario === 0 && (
+                    <p className="mt-1 text-[11px] text-amber-600">Sin precio en U$D: cargalo acá</p>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <input
@@ -338,7 +359,8 @@ export default function NuevoPresupuestoPage() {
                   />
                 </td>
                 <td className="px-3 py-2 text-right font-medium">
-                  {simboloMoneda}{formatearMoneda(aMonedaDoc(item.subtotal))}
+                  {simboloMoneda}
+                  {formatearMoneda(aMonedaDoc(item.subtotal))}
                 </td>
                 <td className="px-3 py-2 text-center">
                   <button onClick={() => quitarItem(idx)} className="text-neutral-400 hover:text-red-600">
@@ -358,6 +380,7 @@ export default function NuevoPresupuestoPage() {
         </table>
       </div>
 
+      {/* Totales y observaciones */}
       <div className="card mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-3 block">
@@ -377,12 +400,10 @@ export default function NuevoPresupuestoPage() {
           </label>
         </div>
         <div className="flex flex-col items-start justify-end sm:items-end">
-          {monedaDocumento === "USD" && (
-            <span className="text-xs text-neutral-400">Cotización usada: ${formatearMoneda(tipoCambio)}</span>
-          )}
           <span className="text-sm text-neutral-500">Total</span>
           <span className="text-3xl font-semibold text-violet-700">
-            {simboloMoneda}{formatearMoneda(aMonedaDoc(total))}
+            {simboloMoneda}
+            {formatearMoneda(aMonedaDoc(total))}
           </span>
         </div>
       </div>
