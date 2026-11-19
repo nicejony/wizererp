@@ -6,7 +6,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ProductoVariante, TipoPrecio, FORMAS_PAGO } from "@/lib/types";
 import DocumentoAcciones from "@/components/DocumentoAcciones";
+import InputPrecio from "@/components/InputPrecio";
 import { formatearMoneda } from "@/lib/format";
+import { precioEnPesos } from "@/lib/precios";
 import { construirPDFDocumento, guardarOCompartirPDF } from "@/lib/pdfDocumentos";
 
 interface ItemRow {
@@ -21,6 +23,7 @@ interface ItemRow {
   codigo: string;
   color: string | null;
   tipoPrecio: TipoPrecio;
+  sinPrecioUsd?: boolean;
   varianteInfo: any;
 }
 
@@ -38,15 +41,6 @@ const RUTA_LISTADO: Record<string, string> = {
   nota_credito: "/devoluciones",
 };
 
-function precioSegunTipo(v: any, tipo: TipoPrecio, tipoCambio: number): number {
-  const p = v.producto!;
-  let precio: number;
-  if (tipo === "mayorista") precio = p.precio_mayorista;
-  else if (tipo === "promocion") precio = p.precio_promocion ?? p.precio_minorista;
-  else precio = p.precio_minorista;
-  return p.moneda_venta === "USD" ? precio * tipoCambio : precio;
-}
-
 export default function DocumentoDetalle({ documento, itemsIniciales }: { documento: any; itemsIniciales: any[] }) {
   const router = useRouter();
   const supabase = createClient();
@@ -57,6 +51,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
   const [formaPago, setFormaPago] = useState(documento.forma_pago ?? "");
   const [observaciones, setObservaciones] = useState(documento.observaciones ?? "");
 
+  // Moneda con la que se creó este documento. La cotización guardada es solo interna (equivalente en pesos) y no se muestra.
   const monedaDoc: "ARS" | "USD" = documento.moneda === "USD" ? "USD" : "ARS";
   const tipoCambioDoc: number = Number(documento.tipo_cambio_aplicado) || 1;
   const simboloMoneda = monedaDoc === "USD" ? "U$D" : "$";
@@ -121,6 +116,20 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
     return { ...item, subtotal: bruto - (bruto * item.descuento_porcentaje) / 100 };
   }
 
+  // Pone en un renglón el precio de la lista elegida. En dólares usa el precio en U$D del producto;
+  // si no lo tiene cargado, queda en blanco para completarlo a mano.
+  function aplicarLista(item: ItemRow, tipo: TipoPrecio): ItemRow {
+    const producto = item.varianteInfo?.producto;
+    if (!producto || tipo === "manual") return { ...item, tipoPrecio: tipo, sinPrecioUsd: false };
+    const precio = precioEnPesos(producto, tipo, tipoCambioDoc, monedaDoc === "USD");
+    if (precio === null) return recalc({ ...item, tipoPrecio: tipo, precio_unitario: 0, sinPrecioUsd: true });
+    return recalc({ ...item, tipoPrecio: tipo, precio_unitario: precio, sinPrecioUsd: false });
+  }
+
+  function precioEnLista(v: any): number | null {
+    return v.producto ? precioEnPesos(v.producto, "mayorista", tipoCambioDoc, monedaDoc === "USD") : null;
+  }
+
   function actualizarItem(idx: number, campo: "cantidad" | "descuento_porcentaje", valor: number) {
     setItems((prev) => prev.map((it, i) => (i === idx ? recalc({ ...it, [campo]: valor }) : it)));
   }
@@ -130,13 +139,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
   }
 
   function cambiarTipoPrecio(idx: number, tipo: TipoPrecio) {
-    setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== idx || !item.varianteInfo?.producto) return item;
-        const nuevoPrecio = tipo === "manual" ? item.precio_unitario : precioSegunTipo(item.varianteInfo, tipo, tipoCambioDoc);
-        return recalc({ ...item, tipoPrecio: tipo, precio_unitario: nuevoPrecio });
-      })
-    );
+    setItems((prev) => prev.map((item, i) => (i === idx ? aplicarLista(item, tipo) : item)));
   }
 
   function quitarItem(idx: number) {
@@ -144,25 +147,22 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
   }
 
   function agregarVariante(v: ProductoVariante) {
-    const precio = precioSegunTipo(v, "mayorista", tipoCambioDoc);
     const costoBase = v.producto?.costo ?? 0;
     const costoEnPesos = v.producto?.moneda_costo === "USD" ? costoBase * tipoCambioActual : costoBase;
-    setItems((prev) => [
-      ...prev,
-      {
-        variante_id: v.id,
-        cantidad: 1,
-        precio_unitario: precio,
-        costo_unitario: costoEnPesos,
-        descuento_porcentaje: 0,
-        subtotal: precio,
-        nombre: v.producto?.nombre ?? "—",
-        codigo: v.producto?.codigo ?? "—",
-        color: v.color,
-        tipoPrecio: "mayorista",
-        varianteInfo: v,
-      },
-    ]);
+    const nuevo: ItemRow = {
+      variante_id: v.id,
+      cantidad: 1,
+      precio_unitario: 0,
+      costo_unitario: costoEnPesos,
+      descuento_porcentaje: 0,
+      subtotal: 0,
+      nombre: v.producto?.nombre ?? "—",
+      codigo: v.producto?.codigo ?? "—",
+      color: v.color,
+      tipoPrecio: "mayorista",
+      varianteInfo: v,
+    };
+    setItems((prev) => [...prev, aplicarLista(nuevo, "mayorista")]);
     setProductoQuery("");
     setProductoResultados([]);
   }
@@ -170,6 +170,7 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
   const total = items.reduce((s, i) => s + i.subtotal, 0);
 
   async function guardarCambios() {
+    if (items.some((i) => i.precio_unitario === 0) && !confirm("Hay productos con precio 0. ¿Guardar igual?")) return;
     setGuardando(true);
 
     await supabase.from("documento_items").delete().eq("documento_id", documento.id);
@@ -200,7 +201,6 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
     const sim = monedaDoc === "USD" ? "U$D " : "$";
     const doc = construirPDFDocumento({
       titulo: `${ETIQUETAS[documento.tipo]} N° ${documento.numero}`,
-      subtitulo: monedaDoc === "USD" ? `Vendido en U$D (cotización $${formatearMoneda(tipoCambioDoc)})` : "",
       fecha: documento.fecha,
       cliente: documento.clientes?.nombre ?? "—",
       empresa: documento.clientes?.empresa ?? null,
@@ -259,11 +259,6 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
             <p className="text-xl font-bold text-violet-700">WIZER BIKES</p>
             <p className="text-sm text-neutral-500">
               {ETIQUETAS[documento.tipo]} N° {documento.numero}
-              {monedaDoc === "USD" && (
-                <span className="ml-2 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
-                  Vendido en USD (cotiz. ${formatearMoneda(tipoCambioDoc)})
-                </span>
-              )}
             </p>
           </div>
           <div className="text-right text-sm text-neutral-500">
@@ -305,21 +300,29 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
             />
             {productoResultados.length > 0 && (
               <div className="absolute z-10 mt-1 w-full rounded-lg border border-neutral-100 bg-white shadow-lg">
-                {productoResultados.map((v) => (
-                  <button
-                    key={v.id}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-neutral-50"
-                    onClick={() => agregarVariante(v)}
-                  >
-                    <span>
-                      {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}{" "}
-                      <span className="text-neutral-400">({v.producto?.codigo})</span>
-                    </span>
-                    <span className="font-medium">
-                      {simboloMoneda}{formatearMoneda(aMonedaDoc(v.producto?.precio_mayorista ?? 0))}
-                    </span>
-                  </button>
-                ))}
+                {productoResultados.map((v) => {
+                  const precioLista = precioEnLista(v);
+                  return (
+                    <button
+                      key={v.id}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                      onClick={() => agregarVariante(v)}
+                    >
+                      <span>
+                        {v.producto?.nombre} {v.color && <span className="text-neutral-500">— {v.color}</span>}{" "}
+                        <span className="text-neutral-400">({v.producto?.codigo})</span>
+                      </span>
+                      {precioLista === null ? (
+                        <span className="text-xs text-amber-600">sin precio en U$D</span>
+                      ) : (
+                        <span className="font-medium">
+                          {simboloMoneda}
+                          {formatearMoneda(aMonedaDoc(precioLista))}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -375,14 +378,17 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
                   )}
                   <td className="py-2">
                     {editando ? (
-                      <input
-                        type="number"
-                        step="0.01"
-                        disabled={item.tipoPrecio !== "manual"}
-                        className="input no-spinner py-1 disabled:bg-neutral-50 disabled:text-neutral-500"
-                        value={aMonedaDoc(item.precio_unitario).toFixed(2)}
-                        onChange={(e) => actualizarPrecioManual(idx, Number(e.target.value))}
-                      />
+                      <>
+                        <InputPrecio
+                          valor={aMonedaDoc(item.precio_unitario)}
+                          onCambio={(v) => actualizarPrecioManual(idx, v)}
+                          deshabilitado={item.tipoPrecio !== "manual" && !item.sinPrecioUsd}
+                          resaltar={!!item.sinPrecioUsd && item.precio_unitario === 0}
+                        />
+                        {item.sinPrecioUsd && item.precio_unitario === 0 && (
+                          <p className="mt-1 text-[11px] text-amber-600">Sin precio en U$D: cargalo acá</p>
+                        )}
+                      </>
                     ) : (
                       `${simboloMoneda}${formatearMoneda(aMonedaDoc(item.precio_unitario))}`
                     )}
@@ -400,7 +406,8 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
                     )}
                   </td>
                   <td className="py-2 text-right font-medium">
-                    {simboloMoneda}{formatearMoneda(aMonedaDoc(item.subtotal))}
+                    {simboloMoneda}
+                    {formatearMoneda(aMonedaDoc(item.subtotal))}
                   </td>
                   {editando && (
                     <td className="no-print py-2 text-center">
@@ -419,7 +426,8 @@ export default function DocumentoDetalle({ documento, itemsIniciales }: { docume
           <div className="text-right">
             <p className="text-sm text-neutral-500">Total</p>
             <p className="text-2xl font-semibold text-violet-700">
-              {simboloMoneda}{formatearMoneda(aMonedaDoc(total))}
+              {simboloMoneda}
+              {formatearMoneda(aMonedaDoc(total))}
             </p>
           </div>
         </div>
