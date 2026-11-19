@@ -11,6 +11,8 @@ export interface Producto {
   precio_minorista: number;
   precio_promocion: number | null;
   moneda_venta: "ARS" | "USD";
+  precio_mayorista_usd: number | null;
+  precio_minorista_usd: number | null;
   categoria_id: string | null;
   foto_url: string | null;
   activo: boolean;
