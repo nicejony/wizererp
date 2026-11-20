@@ -299,6 +299,11 @@ export default function ProductoEditor({
           </div>
         </div>
       </div>
+      <PreciosUsdProducto
+        productoId={producto.id}
+        mayoristaInicial={producto.precio_mayorista_usd}
+        minoristaInicial={producto.precio_minorista_usd}
+      />
     </div>
   );
 }
