@@ -17,9 +17,14 @@ export default async function ComprasPage() {
         <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <ShoppingBag className="text-violet-600" size={22} /> Compras
         </h1>
-        <Link href="/compras/nuevo" className="btn-primary">
-          + Nueva compra
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/ordenes-compra" className="btn-secondary">
+            📝 Órdenes de compra
+          </Link>
+          <Link href="/compras/nuevo" className="btn-primary">
+            + Nueva compra
+          </Link>
+        </div>
       </div>
 
       <div className="card overflow-x-auto p-0">
